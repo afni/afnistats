@@ -1,0 +1,50 @@
+#The obvious lot
+CVS
+.DS_Store
+___*
+*.o
+*.so
+*.dylib
+*.a
+*.dSYM
+*junk*
+*.swp
+.*.swp
+
+#Datasets
+*.nii*
+*.BRIK*
+*.HEAD*
+*.gii*
+*.dset*
+*.niml
+*.1D
+
+#R Hidden files
+*.Rout
+*.args
+
+#Miscellaneous
+*.BAK
+
+# Matlab temporary files
+*.m~
+
+# Octave workspace
+octave-workspace
+/Debug/
+
+# Python
+__pycache__
+*.pyc
+
+# Test and coverage artifacts
+.pytest_cache
+.coverage
+output_of_tests
+sample_output_of_tests
+*.Rproj*
+.Rproj.user
+.Rhistory
+inst/doc
+old_src/*.R
