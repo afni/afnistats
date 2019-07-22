@@ -1,5 +1,3 @@
-library("brms")
-
 #' MBA
 #'
 #'MBA performs matrix-based analysis (MBA) as theoretically elaborated in the
@@ -191,76 +189,26 @@ library("brms")
 #' the program complains with an 'Arg list too long' error; (b) you want to
 #' try different models with the same dataset.
 #' @export
+#' @import brms
 #' @example vignettes/MBA-demo.Rmd
 MBA <- function(dataTable,prefix="result",chains=4,iterations=1000,model=1,MD=FALSE,
-r2z=FALSE, cVars=NULL, qVars='Intercept', stdz=NA, EOI='Intercept', qContr=NA,
-Y='Y', Subj='Subj', ROI1='ROI1', ROI2='ROI2', verb=0,dbgArgs=FALSE){
+                r2z=FALSE, cVars=NULL, qVars='Intercept', stdz=NA, EOI='Intercept', qContr=NA,
+                Y='Y', Subj='Subj', ROI1='ROI1', ROI2='ROI2', verb=0,dbgArgs=FALSE){
 
-  fname <- dataTable
-  dataTable <- utils::read.table(fname, header=T)
+
+  dpath <-dataTable
   outFN <- pprefix.AFNI.name(prefix)
-  # standardize the names for Y, ROI and subject
-  names(dataTable)[names(dataTable)==Subj] <- 'Subj'
-  names(dataTable)[names(dataTable)==Y] <- 'Y'
-  names(dataTable)[names(dataTable)==ROI1] <- 'ROI1'
-  names(dataTable)[names(dataTable)==ROI2] <- 'ROI2'
-
-  # make sure ROI1, ROI2 and Subj are treated as factors
-  if(!is.factor(dataTable$ROI1)) dataTable$ROI1 <- as.factor(dataTable$ROI1)
-  if(!is.factor(dataTable$ROI2)) dataTable$ROI2 <- as.factor(dataTable$ROI2)
-  if(!is.factor(dataTable$Subj)) dataTable$Subj <- as.factor(dataTable$Subj)
-
-  # verify variable types
-  if(model==1) terms <- 1 else terms <- strsplit(model, '\\+')[[1]]
-  if(length(terms) > 1) {
-    #terms <- terms[terms!='1']
-    for(ii in 1:length(terms)) {
-      if(!is.null(cVars[1])) if(terms[ii] %in% strsplit(cVars, '\\,')[[1]] & !is.factor(dataTable[[terms[ii]]])) # declared factor with quantitative levels
-        dataTable[[terms[ii]]] <- as.factor(dataTable[[terms[ii]]])
-      if(terms[ii] %in% strsplit(qVars, '\\,')[[1]] & is.factor(dataTable[[terms[ii]]])) # declared numerical variable contains characters
-        stop(sprintf('Column %s in the data table is declared as numerical, but contains characters!', terms[ii]))
-    }
-  }
-
-  # number of ROIs
-  nR <- length(union(levels(dataTable$ROI1), levels(dataTable$ROI2)))
-
-  cat('===== Summary of variable information =====', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat(sprintf('Total number of ROIs: %i', nR),
-      file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat(sprintf('Response variable Y - mean: %f; SD: %f', mean(dataTable$Y), stats::sd(dataTable$Y)),
-      file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  outDF(summary(dataTable$Y), outFN)
-  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat('Data structure:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  outDF(utils::str(dataTable), outFN)
-  cat('Subjects:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  outDF(summary(dataTable$Subj), outFN)
-  cat('ROIs:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  outDF(summary(dataTable$ROI1), outFN)
-  outDF(summary(dataTable$ROI2), outFN)
-  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-
-  if(!MD) if(nlevels(dataTable$Subj)*nR*(nR-1)/2 < nrow(dataTable))
-    stop(sprintf('Error: with %d regions and %d subjects, it is expected to have %d rows per subject, leading to toally %d rows in the input data table. However, there are only %d rows. If you have missing data, use option -MD', nR, nlevels(dataTable$Subj), nR*(nR-1)/2, nlevels(dataTable$Subj)*nR*(nR-1)/2, nrow(dataTable)))
-
   EOIq <- strsplit(qVars, '\\,')[[1]]
-  if(!('Intercept' %in% EOIq)) EOIq <- c('Intercept', EOIq)
+    if(!('Intercept' %in% EOIq)) EOIq <- c('Intercept', EOIq)
   EOIq <- intersect(strsplit(EOI, '\\,')[[1]], EOIq)
   if(is.null(cVars)) EOIc <- NA else
     EOIc <- intersect(strsplit(EOI, '\\,')[[1]], strsplit(cVars, '\\,')[[1]])
 
-  if(any(!is.na(qContr))) {
-    qContrL <- unlist(strsplit(qContr, '\\,'))
-    # verify 'vs' in alternating location
-    ll <- which(qContrL %in% 'vs')
-    if(!all(ll == seq(2,300,3)[1:length(ll)]))
-      stop(sprintf('Quantitative contrast specification -qContr is incorrect!'))
-    qContrL <- qContrL[!qContrL %in% 'vs']
-    # verify that variable names are correct
-    if(!all(qContrL %in% c(QV, 'Intercept')))
-      stop(sprintf('At least one of the variable labels in quantitative contrast specification -qContr is incorrect!'))
-  }
+  
+  dataTable <- setup_dataTable(dpath,model,MD,r2z,cVars,qVars,stdz,
+                               qContr,Y,Subj,ROI1, ROI2)
+  
+  log_setup_info(dataTable,outFN)
 
   # deviation coding: -1/0/1 - the intercept is associated with the mean across the levels of the factor
   # each coding variable corresponds to the level relative to the mean: alphabetically last level is
@@ -273,41 +221,13 @@ Y='Y', Subj='Subj', ROI1='ROI1', ROI2='ROI2', verb=0,dbgArgs=FALSE){
   #levels(dataTable$ROI1) <- union(levels(dataTable$ROI1), levels(dataTable$ROI2))
   #levels(dataTable$ROI2) <- union(levels(dataTable$ROI1), levels(dataTable$ROI2))
 
-  # standardization
-  if(!is.na(stdz)) {
-    sl <- strsplit(stdz, '\\,')[[1]]
-    for(ii in 1:length(sl)) if(is.numeric(dataTable[[sl[ii]]]))
-      dataTable[[sl[ii]]] <- scale(dataTable[[sl[ii]]], center = TRUE, scale = TRUE) else
-        stop(sprintf('The column %s is categorical, not numerical! Why are you asking me to standardize it?', sl[ii]))
-  }
-
-  set.seed(1234)
-  dataTable$w <- 1
-
   # Start the clock!
   ptm <- proc.time()
 
-  ## for testing only: remove this soon ####
-  #dataTable$V1 <- rnorm(nrow(dataTable))
-  #dataTable$V2 <- rnorm(nrow(dataTable), mean=0.5, sd=1)
-  #model <- '1+V1+V2'
-
   ##################### MCMC ####################
-  if(model==1) modelForm <- stats::as.formula(paste('Y ~ 1 + (1|Subj) + (1|ROI1:ROI2) +
-        (1|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE)) +
-        (1|mm(ROI1:Subj, ROI2:Subj, weights = cbind(w, w), scale=FALSE))')) else
-          modelForm <- stats::as.formula(paste('Y~', model, '+(1|Subj)+(', model, '|ROI1:ROI2)+(',
-                                        model, '|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE))'))
+  fm <- run_mba(dataTable,model,chains,iterations)
 
-  if(model==1) fm <- brms::brm(modelForm, data=dataTable, chains = chains,
-                             iter=iterations, control = list(adapt_delta = 0.99, max_treedepth = 15)) else
-                               fm <- brms::brm(modelForm, data=dataTable,
-                                         prior=c(prior(normal(0, 1), class = "Intercept"), prior(normal(0, 0.5), class = "sd")),
-                                         chains = chains, iter=iterations, control = list(adapt_delta = 0.99, max_treedepth = 15))
 
-  print(format(Sys.time(), "%D %H:%M:%OS3"))
-
-  post_process(fm,outFN,iterations,chains,nR,EOIq,qContr,EOIc,ptm)
-
+  post_process(fm,outFN,iterations,chains,EOIq,EOIc,qContr,ptm,get_nR(dataTable))
 }
 

@@ -664,8 +664,9 @@ psROI <- function(aa, bb, tm, nR) {
   return(R0)
 }
 
-post_process <- function(fm,outFN,iterations,chains,nR,EOIq,qContr,EOIc,ptm){
-
+post_process <- function(fm,outFN,iterations,chains,EOIq,EOIc,qContr,ptm,nR){
+  
+  print(format(Sys.time(), "%D %H:%M:%OS3"))
     # Stop the clock
   proc.time() - ptm
 
@@ -674,16 +675,18 @@ post_process <- function(fm,outFN,iterations,chains,nR,EOIq,qContr,EOIc,ptm){
   cat(format(Sys.time(), "%D %H:%M:%OS3"), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
   cat(utils::capture.output(proc.time() - ptm), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
 
+  rs <- summary(fm)
+  rs_text <- utils::capture.output(rs)
   cat('\n++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
   cat('***** Summary information of model information *****\n')
-  (rs <- summary(fm))
+  cat(rs_text,fill=2)
   cat('\n***** End of model information *****\n')
   cat('++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n')
 
   cat('\n***** Summary information of model results *****\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
 
 
-  cat(utils::capture.output(rs), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat(rs_text, file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
   cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
 
   #union(levels(dataTable$ROI1), levels(dataTable$ROI2))
@@ -694,7 +697,8 @@ post_process <- function(fm,outFN,iterations,chains,nR,EOIq,qContr,EOIc,ptm){
   ns <- iterations*chains/2
   #nR <- nlevels(dataTable$ROI1)
   aa <- brms::fixef(fm, summary = FALSE) # Population-Level Estimates
-  bb <- ranef(fm, summary = FALSE) # Extract Group-Level (or random-effect) Estimates
+  bb <- brms::ranef(fm, summary = FALSE) # Extract Group-Level (or random-effect) Estimates
+  
   if(nR != length(dimnames(bb$mmROI1ROI2)[[2]]))
     cat('\n***** Warning: something strange about the ROIs! *****\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
 
@@ -835,3 +839,111 @@ first.in.path <- function(file) {
   #cat('Using ', ff[1],'\n');
   return(gsub('//','/',ff[1], fixed=TRUE))
 }
+
+setup_dataTable <- function(data_path,model,MD,r2z,cVars,qVars,stdz,
+                            qContr,Y,Subj,ROI1, ROI2){
+
+  dataTable <- utils::read.table(data_path,header=T)
+  # standardize the names for Y, ROI and subject
+  names(dataTable)[names(dataTable)==Subj] <- 'Subj'
+  names(dataTable)[names(dataTable)==Y] <- 'Y'
+  names(dataTable)[names(dataTable)==ROI1] <- 'ROI1'
+  names(dataTable)[names(dataTable)==ROI2] <- 'ROI2'
+
+  # make sure ROI1, ROI2 and Subj are treated as factors
+  if(!is.factor(dataTable$ROI1)) dataTable$ROI1 <- as.factor(dataTable$ROI1)
+  if(!is.factor(dataTable$ROI2)) dataTable$ROI2 <- as.factor(dataTable$ROI2)
+  if(!is.factor(dataTable$Subj)) dataTable$Subj <- as.factor(dataTable$Subj)
+
+  # verify variable types
+  if(model==1) terms <- 1 else terms <- strsplit(model, '\\+')[[1]]
+  if(length(terms) > 1) {
+    #terms <- terms[terms!='1']
+    for(ii in 1:length(terms)) {
+      if(!is.null(cVars[1])) if(terms[ii] %in% strsplit(cVars, '\\,')[[1]] & !is.factor(dataTable[[terms[ii]]])) # declared factor with quantitative levels
+        dataTable[[terms[ii]]] <- as.factor(dataTable[[terms[ii]]])
+      if(terms[ii] %in% strsplit(qVars, '\\,')[[1]] & is.factor(dataTable[[terms[ii]]])) # declared numerical variable contains characters
+        stop(sprintf('Column %s in the data table is declared as numerical, but contains characters!', terms[ii]))
+    }
+  }
+
+  dataTable$w <- 1
+  
+  # standardization
+  if(!is.na(stdz)) {
+    sl <- strsplit(stdz, '\\,')[[1]]
+    for(ii in 1:length(sl)) if(is.numeric(dataTable[[sl[ii]]]))
+      dataTable[[sl[ii]]] <- scale(dataTable[[sl[ii]]], center = TRUE, scale = TRUE) else
+        stop(sprintf('The column %s is categorical, not numerical! Why are you asking me to standardize it?', sl[ii]))
+  }
+
+    # number of ROIs
+  nR <- get_nR(dataTable)
+
+  if(!MD) if(nlevels(dataTable$Subj)*nR*(nR-1)/2 < nrow(dataTable))
+    stop(sprintf('Error: with %d regions and %d subjects, it is expected to have %d rows per subject, leading to toally %d rows in the input data table. However, there are only %d rows. If you have missing data, use option -MD', nR, nlevels(dataTable$Subj), nR*(nR-1)/2, nlevels(dataTable$Subj)*nR*(nR-1)/2, nrow(dataTable)))
+
+  
+
+  if(any(!is.na(qContr))) {
+    qContrL <- unlist(strsplit(qContr, '\\,'))
+    # verify 'vs' in alternating location
+    ll <- which(qContrL %in% 'vs')
+    if(!all(ll == seq(2,300,3)[1:length(ll)]))
+      stop(sprintf('Quantitative contrast specification -qContr is incorrect!'))
+    qContrL <- qContrL[!qContrL %in% 'vs']
+    # verify that variable names are correct
+    if(!all(qContrL %in% c(QV, 'Intercept')))
+      stop(sprintf('At least one of the variable labels in quantitative contrast specification -qContr is incorrect!'))
+  }
+
+  dataTable
+}
+
+get_nR <- function(dataTable){
+    length(union(levels(dataTable$ROI1), levels(dataTable$ROI2)))
+}
+
+run_mba <- function(dataTable,model,chains,iterations){
+  set.seed(1234)
+  if(model==1) {
+  
+    modelForm <- stats::as.formula(paste('Y ~ 1 + (1|Subj) + (1|ROI1:ROI2) +
+        (1|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE)) +
+        (1|mm(ROI1:Subj, ROI2:Subj, weights = cbind(w, w), scale=FALSE))'))
+  }else{
+  
+    modelForm <- stats::as.formula(paste('Y~', model, '+(1|Subj)+(', model, '|ROI1:ROI2)+(',
+                                         model, '|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE))'))
+  }
+  if(model==1){
+  
+    fm <- brm(modelForm, data=dataTable, chains = chains,
+                    iter=iterations, control = list(adapt_delta = 0.99, max_treedepth = 15))
+  }else{
+  
+    fm <- brm(modelForm, data=dataTable,
+                    prior=c(prior(normal(0, 1), class = "Intercept"),prior(normal(0, 0.5), class = "sd")),
+                    chains = chains, iter=iterations, control = list(adapt_delta = 0.99, max_treedepth = 15))
+    fm
+  }
+}
+
+log_setup_info <- function(dataTable,outFN){
+  nR <- get_nR(dataTable)
+  cat('===== Summary of variable information =====', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat(sprintf('Total number of ROIs: %i', nR),
+      file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat(sprintf('Response variable Y - mean: %f; SD: %f', mean(dataTable$Y), stats::sd(dataTable$Y)),
+      file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  outDF(summary(dataTable$Y), outFN)
+  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat('Data structure:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  outDF(utils::str(dataTable), outFN)
+  cat('Subjects:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  outDF(summary(dataTable$Subj), outFN)
+  cat('ROIs:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  outDF(summary(dataTable$ROI1), outFN)
+  outDF(summary(dataTable$ROI2), outFN)
+  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  }
