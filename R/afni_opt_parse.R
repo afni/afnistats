@@ -1,31 +1,11 @@
-# Copyright (c) 2010-2017 Trevor L. Davis <trevor.l.davis@gmail.com>
-# Copyright (c) 2015 Rick FitzJohn https://github.com/richfitz
-# Copyright (c) 2013 Kirill Müller https://github.com/krlmlr
-# Copyright (c) 2011 Jim Nikelski <nikelski@bic.mni.mcgill.ca>
-# Copyright (c) 2010 Steve Lianoglou <lianos@cbio.mskcc.org>
-#
+
 #  This file is free software: you may copy, redistribute and/or modify it
 #  under the terms of the GNU General Public License as published by the
 #  Free Software Foundation, either version 2 of the License, or (at your
 #  option) any later version.
 #
-#  This file is distributed in the hope that it will be useful, but
-#  WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-#  General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-# This file incorporates work from the optparse module in Python 2.6.2.
-#
-#     Copyright (c) 1990-2009 Python Software Foundation; All Rights Reserved
-#
-# See (inst/)COPYRIGHTS or http://docs.python.org/2/license.html for the full
-# Python (GPL-compatible) license stack.
-#
-# As mentioned above, this file incorporates some patches by Steve Lianoglou (c) 2010
-# He explicitly gave me a non-exclusive unlimited license to code in his patches
+#  This code is a modified version of r-optparse modified to enable the generation of
+# a cli parser that matches the rest of the AFNI suite of software.
 
 #' Option Parser
 #'
@@ -41,7 +21,6 @@
 #'     usage statement and options statement
 #' @slot epilogue  Additional text for \code{print_help} to print out after
 #'     the options statement
-#' @author Trevor Davis.
 #' @seealso \code{\link{OptionParserOption}}
 #' @import methods
 #' @exportClass OptionParser
@@ -132,7 +111,7 @@ OptionParser <- function(usage = "usage: %prog [options]", option_list=list(),
                          description="", epilogue="") {
 
   if(is.null(prog)) {
-    prog <- get_Rscript_filename()
+    prog <- getopt::get_Rscript_filename()
   }
   if(length(prog) && !is.na(prog)) {
     usage <- gsub("%prog", prog, usage)
@@ -489,7 +468,7 @@ parse_args <- function(object, args = commandArgs(trailingOnly = TRUE),
 
   options_list <- list()
   if(length(args)) {
-    opt <- try(getopt(spec=spec, opt=args), silent=TRUE)
+    opt <- try(getopt::getopt(spec=spec, opt=args), silent=TRUE)
     if(class(opt) == "try-error") {
       if(grepl("redundant short names for flags", opt)) {
         opt <- paste(opt, "did you forget to set ``add_help_option=FALSE`` in ``OptionParser``")
