@@ -1,9 +1,294 @@
 parse_args <- function(args){
   ExecName <- 'MBA'
   lop <- read.MBA.opts.batch(args, verb = 0)
+  lop['outFN'] <- lop['prefix']
+  lop['prefix'] <- NULL
   lop <- process.MBA.opts(lop, verb = lop$verb)
   lop
 }
+
+
+post_process <- function(fm,outFN,iterations,chains,EOIq,EOIc,qContr,ptm,nR){
+
+  print(format(Sys.time(), "%D %H:%M:%OS3"))
+    # Stop the clock
+  proc.time() - ptm
+
+  save.image(file=paste0(outFN, ".RData"))
+
+  cat(format(Sys.time(), "%D %H:%M:%OS3"), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat(utils::capture.output(proc.time() - ptm), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+
+  rs <- summary(fm)
+  rs_text <- utils::capture.output(rs)
+  cat('\n++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
+  cat('***** Summary information of model information *****\n')
+  cat(rs_text,fill=2)
+  cat('\n***** End of model information *****\n')
+  cat('++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n')
+
+  cat('\n***** Summary information of model results *****\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+
+
+  cat(rs_text, file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+
+  #union(levels(dataTable$ROI1), levels(dataTable$ROI2))
+
+  #<- list(outFN='Tara', EOI=c('Intercept', 'e4', 'site'), EOIc=c('e4', 'site'), EOIq='Intercept')
+  #['EOIq']] <- 'Intercept'
+
+  ns <- iterations*chains/2
+  #nR <- nlevels(dataTable$ROI1)
+  aa <- brms::fixef(fm, summary = FALSE) # Population-Level Estimates
+  bb <- brms::ranef(fm, summary = FALSE) # Extract Group-Level (or random-effect) Estimates
+
+  if(nR != length(dimnames(bb$mmROI1ROI2)[[2]]))
+    cat('\n***** Warning: something strange about the ROIs! *****\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+
+
+  ########## region pair effects #############
+  # for intercept or quantitative variable
+  if(any(!is.na(EOIq) == TRUE)) for(ii in 1:length(EOIq)) {
+    xx <- vv(ww(aa, bb, EOIq[ii], nR,ns), ns, nR)
+    cat(sprintf('===== Summary of region pair effects for %s =====', EOIq[ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    prnt(90, 1, res(bb, xx, 0.1, 3), outFN, 'region pairs')
+    prnt(95, 1, res(bb, xx, 0.05, 3), outFN, 'region pairs')
+    prnt(95, 2, res(bb, xx, 0.025, 3), outFN, 'region pairs')
+    cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    mPlot(xx, EOIq[ii])
+  }
+
+  # for contrasts among quantitative variables
+  if(any(!is.na(qContr) == TRUE)) for(ii in 1:(length(qContrL)/2)) {
+    xx <- vv(ww(aa, bb, qContrL[2*ii-1], nR,ns)-ww(aa, bb, qContrL[2*ii], nR,ns), ns, nR)
+    cat(sprintf('===== Summary of region pair effects for %s vs %s =====', qContrL[2*ii-1], qContrL[2*ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    prnt(90, 1, res(bb, xx, 0.1, 3), outFN, 'region pairs')
+    prnt(95, 1, res(bb, xx, 0.05, 3), outFN, 'region pairs')
+    prnt(95, 2, res(bb, xx, 0.025, 3), outFN, 'region pairs')
+    cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    mPlot(xx, paste0(qContrL[2*ii-1], 'vs', qContrL[2*ii]))
+  }
+
+  # for factor
+  if(any(!is.na(EOIc) == TRUE)) for(ii in 1:length(EOIc)) {
+    lvl <- levels(dataTable[[EOIc[ii]]])  # levels
+    nl <- nlevels(dataTable[[EOIc[ii]]])  # number of levels: last level is the reference in deviation coding
+    ps <- array(0, dim=c(nl, ns, nR, nR)) # posterior samples
+    for(jj in 1:(nl-1)) ps[jj,,,] <- ww(aa, bb, paste0(EOIc[ii],jj), nR)
+    ps[nl,,,] <- ww(aa, bb, 'Intercept', nR)
+    psa <- array(0, dim=c(nl, ns, nR, nR)) # posterior samples adjusted
+    for(jj in 1:(nl-1)) {
+      psa[jj,,,] <- ps[nl,,,] + ps[jj,,,]
+      psa[nl,,,] <- psa[nl,,,] + ps[jj,,,]
+    }
+    psa[nl,,,] <- ps[nl,,,] - psa[nl,,,]  # reference level
+    dimnames(psa)[[3]] <- dimnames(bb$mmROI1ROI2)[[2]]
+    dimnames(psa)[[4]] <- dimnames(bb$mmROI1ROI2)[[2]]
+
+    #oo <- array(apply(psa, 1, vv, ns, nR), dim=c(nR, nR, 8, nl))
+    #dimnames(oo)[[3]] <- c('mean', 'sd', 'P+', '2.5%', '5%', '50%', '95%', '97.5%')
+
+    cat(sprintf('===== Summary of region pair effects for %s =====', EOIc[ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    for(jj in 1:nl) {
+      cat(sprintf('----- %s level: %s', EOIc[ii], lvl[jj]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+      oo <- vv(psa[jj,,,], ns, nR)
+      prnt(90, 1, res(bb, oo, 0.1, 3),  outFN, 'region pairs')
+      prnt(95, 1, res(bb, oo, 0.05, 3),  outFN, 'region pairs')
+      prnt(95, 2, res(bb, oo, 0.025, 3), outFN, 'region pairs')
+      cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+      mPlot(oo, paste0(EOIc[ii], '_', lvl[jj]))
+    }
+
+    cat(sprintf('===== Summary of region pair effects for %s comparisons =====', EOIc[ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    for(jj in 1:(nl-1)) for(kk in (jj+1):nl) {
+      cat(sprintf('----- level comparison: %s vs %s', lvl[jj], lvl[kk]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+      oo <- vv(psa[jj,,,] - psa[kk,,,], ns, nR)
+      prnt(90, 1, res(bb, oo, 0.1),   outFN, 'region pairs')
+      prnt(95, 1, res(bb, oo, 0.05),  outFN, 'region pairs')
+      prnt(95, 2, res(bb, oo, 0.025), outFN, 'region pairs')
+      cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+      mPlot(oo, paste0(EOIc[ii], '_', lvl[jj], 'vs', lvl[kk]))
+    }
+  }
+
+  ########## region effects #############
+  # posterior samples at ROIs for a term
+
+  #gg <- psROI(aa, bb, 'Intercept', nR)
+
+  # summary for ROIs: nd - number of digits to output
+
+  #gg <- sumROI(gg, ns, 3)
+
+  # for Intercept and quantitative variables
+  if(any(!is.na(EOIq) == TRUE)) for(ii in 1:length(EOIq)) {
+    cat(sprintf('===== Summary of region effects for %s =====', EOIq[ii]),
+        file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    gg <- sumROI(psROI(aa, bb, EOIq[ii], nR), ns, 3)
+    cat(utils::capture.output(gg), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  }
+
+  # for contrasts among quantitative variables
+  if(any(!is.na(qContr) == TRUE)) for(ii in 1:(length(qContrL)/2)) {
+    cat(sprintf('===== Summary of region effects for %s vs %s =====', qContrL[2*ii-1], qContrL[2*ii]),
+        file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    gg <- sumROI(psROI(aa, bb, qContrL[2*ii-1], nR) - psROI(aa, bb, qContrL[2*ii], nR), ns, 3)
+    cat(utils::capture.output(gg), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  }
+
+  # for factor
+  if(any(!is.na(EOIc) == TRUE)) for(ii in 1:length(EOIc)) {
+    lvl <- levels(dataTable[[EOIc[ii]]])  # levels
+    nl <- nlevels(dataTable[[EOIc[ii]]])  # number of levels: last level is the reference in deviation coding
+    ps <- array(0, dim=c(nl, ns, nR)) # posterior samples
+    for(jj in 1:(nl-1)) ps[jj,,] <- psROI(aa, bb, paste0(EOIc[ii],jj), nR)
+    ps[nl,,] <- psROI(aa, bb, 'Intercept', nR) # Intercept: averge effect
+    psa <- array(0, dim=c(nl, ns, nR)) # posterior samples adjusted
+    for(jj in 1:(nl-1)) {
+      psa[jj,,] <- ps[nl,,]  + ps[jj,,]
+      psa[nl,,] <- psa[nl,,] + ps[jj,,]
+    }
+    psa[nl,,] <- ps[nl,,] - psa[nl,,]  # reference level
+    dimnames(psa)[[3]] <- dimnames(bb$mmROI1ROI2)[[2]]
+
+    oo <- apply(psa, 1, sumROI, ns, 3)
+
+    cat(sprintf('===== Summary of region effects for %s =====', EOIc[ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    for(jj in 1:nl) {
+      cat(sprintf('----- %s level: %s', EOIc[ii], lvl[jj]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+      cat(utils::capture.output(oo[[jj]]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+      cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    }
+
+    cat(sprintf('===== Summary of region effects for %s comparisons =====', EOIc[ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    for(jj in 1:(nl-1)) for(kk in (jj+1):nl) {
+      cat(sprintf('----- level comparison: %s vs %s', lvl[jj], lvl[kk]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+      oo <- sumROI(psa[jj,,] - psa[kk,,], ns, 3)
+      cat(utils::capture.output(oo), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+      cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+    }
+  }
+
+  # save it again
+  save.image(file=paste0(outFN, ".RData"))
+  cat("\nCongratulations! The above results are saved in file ", outFN, "\n\n", sep='')
+}
+
+
+
+
+setup_dataTable <- function(data_path,model,MD,r2z,cVars,qVars,stdz,
+                            qContr,Y,Subj,ROI1, ROI2){
+
+  dataTable <- utils::read.table(data_path,header=T)
+  # standardize the names for Y, ROI and subject
+  names(dataTable)[names(dataTable)==Subj] <- 'Subj'
+  names(dataTable)[names(dataTable)==Y] <- 'Y'
+  names(dataTable)[names(dataTable)==ROI1] <- 'ROI1'
+  names(dataTable)[names(dataTable)==ROI2] <- 'ROI2'
+
+  # make sure ROI1, ROI2 and Subj are treated as factors
+  if(!is.factor(dataTable$ROI1)) dataTable$ROI1 <- as.factor(dataTable$ROI1)
+  if(!is.factor(dataTable$ROI2)) dataTable$ROI2 <- as.factor(dataTable$ROI2)
+  if(!is.factor(dataTable$Subj)) dataTable$Subj <- as.factor(dataTable$Subj)
+
+  # verify variable types
+  if(model==1) terms <- 1 else terms <- strsplit(model, '\\+')[[1]]
+  if(length(terms) > 1) {
+    #terms <- terms[terms!='1']
+    for(ii in 1:length(terms)) {
+      if(!is.null(cVars[1])) if(terms[ii] %in% strsplit(cVars, '\\,')[[1]] & !is.factor(dataTable[[terms[ii]]])) # declared factor with quantitative levels
+        dataTable[[terms[ii]]] <- as.factor(dataTable[[terms[ii]]])
+      if(terms[ii] %in% strsplit(qVars, '\\,')[[1]] & is.factor(dataTable[[terms[ii]]])) # declared numerical variable contains characters
+        stop(sprintf('Column %s in the data table is declared as numerical, but contains characters!', terms[ii]))
+    }
+  }
+
+  dataTable$w <- 1
+
+  # standardization
+  if(!is.na(stdz)) {
+    sl <- strsplit(stdz, '\\,')[[1]]
+    for(ii in 1:length(sl)) if(is.numeric(dataTable[[sl[ii]]]))
+      dataTable[[sl[ii]]] <- scale(dataTable[[sl[ii]]], center = TRUE, scale = TRUE) else
+        stop(sprintf('The column %s is categorical, not numerical! Why are you asking me to standardize it?', sl[ii]))
+  }
+
+    # number of ROIs
+  nR <- get_nR(dataTable)
+
+  if(!MD) if(nlevels(dataTable$Subj)*nR*(nR-1)/2 < nrow(dataTable))
+    stop(sprintf('Error: with %d regions and %d subjects, it is expected to have %d rows per subject, leading to toally %d rows in the input data table. However, there are only %d rows. If you have missing data, use option -MD', nR, nlevels(dataTable$Subj), nR*(nR-1)/2, nlevels(dataTable$Subj)*nR*(nR-1)/2, nrow(dataTable)))
+
+
+
+  if(any(!is.na(qContr))) {
+    qContrL <- unlist(strsplit(qContr, '\\,'))
+    # verify 'vs' in alternating location
+    ll <- which(qContrL %in% 'vs')
+    if(!all(ll == seq(2,300,3)[1:length(ll)]))
+      stop(sprintf('Quantitative contrast specification -qContr is incorrect!'))
+    qContrL <- qContrL[!qContrL %in% 'vs']
+    # verify that variable names are correct
+    if(!all(qContrL %in% c(QV, 'Intercept')))
+      stop(sprintf('At least one of the variable labels in quantitative contrast specification -qContr is incorrect!'))
+  }
+
+  dataTable
+}
+
+get_nR <- function(dataTable){
+    length(union(levels(dataTable$ROI1), levels(dataTable$ROI2)))
+}
+
+run_mba <- function(dataTable,model,chains,iterations){
+  set.seed(1234)
+  if(model==1) {
+
+    modelForm <- stats::as.formula(paste('Y ~ 1 + (1|Subj) + (1|ROI1:ROI2) +
+        (1|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE)) +
+        (1|mm(ROI1:Subj, ROI2:Subj, weights = cbind(w, w), scale=FALSE))'))
+  }else{
+
+    modelForm <- stats::as.formula(paste('Y~', model, '+(1|Subj)+(', model, '|ROI1:ROI2)+(',
+                                         model, '|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE))'))
+  }
+  if(model==1){
+
+    fm <- brm(modelForm, data=dataTable, chains = chains,
+                    iter=iterations, control = list(adapt_delta = 0.99, max_treedepth = 15))
+  }else{
+
+    fm <- brm(modelForm, data=dataTable,
+                    prior=c(prior(normal(0, 1), class = "Intercept"),prior(normal(0, 0.5), class = "sd")),
+                    chains = chains, iter=iterations, control = list(adapt_delta = 0.99, max_treedepth = 15))
+    fm
+  }
+}
+
+log_setup_info <- function(dataTable,outFN){
+  nR <- get_nR(dataTable)
+  cat('===== Summary of variable information =====', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat(sprintf('Total number of ROIs: %i', nR),
+      file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat(sprintf('Response variable Y - mean: %f; SD: %f', mean(dataTable$Y), stats::sd(dataTable$Y)),
+      file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  outDF(summary(dataTable$Y), outFN)
+  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat('Data structure:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  outDF(utils::str(dataTable), outFN)
+  cat('Subjects:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  outDF(summary(dataTable$Subj), outFN)
+  cat('ROIs:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  outDF(summary(dataTable$ROI1), outFN)
+  outDF(summary(dataTable$ROI2), outFN)
+  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  }
+
+
 
 #The help function for MBA batch (AFNI-style script mode)
 help.MBA.opts <- function (params, alpha = TRUE, itspace='   ', adieu=FALSE) {
@@ -664,174 +949,6 @@ psROI <- function(aa, bb, tm, nR) {
   return(R0)
 }
 
-post_process <- function(fm,outFN,iterations,chains,EOIq,EOIc,qContr,ptm,nR){
-  
-  print(format(Sys.time(), "%D %H:%M:%OS3"))
-    # Stop the clock
-  proc.time() - ptm
-
-  save.image(file=paste0(outFN, ".RData"))
-
-  cat(format(Sys.time(), "%D %H:%M:%OS3"), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat(utils::capture.output(proc.time() - ptm), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-
-  rs <- summary(fm)
-  rs_text <- utils::capture.output(rs)
-  cat('\n++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
-  cat('***** Summary information of model information *****\n')
-  cat(rs_text,fill=2)
-  cat('\n***** End of model information *****\n')
-  cat('++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n')
-
-  cat('\n***** Summary information of model results *****\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-
-
-  cat(rs_text, file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-
-  #union(levels(dataTable$ROI1), levels(dataTable$ROI2))
-
-  #<- list(outFN='Tara', EOI=c('Intercept', 'e4', 'site'), EOIc=c('e4', 'site'), EOIq='Intercept')
-  #['EOIq']] <- 'Intercept'
-
-  ns <- iterations*chains/2
-  #nR <- nlevels(dataTable$ROI1)
-  aa <- brms::fixef(fm, summary = FALSE) # Population-Level Estimates
-  bb <- brms::ranef(fm, summary = FALSE) # Extract Group-Level (or random-effect) Estimates
-  
-  if(nR != length(dimnames(bb$mmROI1ROI2)[[2]]))
-    cat('\n***** Warning: something strange about the ROIs! *****\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-
-
-  ########## region pair effects #############
-  # for intercept or quantitative variable
-  if(any(!is.na(EOIq) == TRUE)) for(ii in 1:length(EOIq)) {
-    xx <- vv(ww(aa, bb, EOIq[ii], nR,ns), ns, nR)
-    cat(sprintf('===== Summary of region pair effects for %s =====', EOIq[ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    prnt(90, 1, res(bb, xx, 0.1, 3), outFN, 'region pairs')
-    prnt(95, 1, res(bb, xx, 0.05, 3), outFN, 'region pairs')
-    prnt(95, 2, res(bb, xx, 0.025, 3), outFN, 'region pairs')
-    cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    mPlot(xx, EOIq[ii])
-  }
-
-  # for contrasts among quantitative variables
-  if(any(!is.na(qContr) == TRUE)) for(ii in 1:(length(qContrL)/2)) {
-    xx <- vv(ww(aa, bb, qContrL[2*ii-1], nR,ns)-ww(aa, bb, qContrL[2*ii], nR,ns), ns, nR)
-    cat(sprintf('===== Summary of region pair effects for %s vs %s =====', qContrL[2*ii-1], qContrL[2*ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    prnt(90, 1, res(bb, xx, 0.1, 3), outFN, 'region pairs')
-    prnt(95, 1, res(bb, xx, 0.05, 3), outFN, 'region pairs')
-    prnt(95, 2, res(bb, xx, 0.025, 3), outFN, 'region pairs')
-    cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    mPlot(xx, paste0(qContrL[2*ii-1], 'vs', qContrL[2*ii]))
-  }
-
-  # for factor
-  if(any(!is.na(EOIc) == TRUE)) for(ii in 1:length(EOIc)) {
-    lvl <- levels(dataTable[[EOIc[ii]]])  # levels
-    nl <- nlevels(dataTable[[EOIc[ii]]])  # number of levels: last level is the reference in deviation coding
-    ps <- array(0, dim=c(nl, ns, nR, nR)) # posterior samples
-    for(jj in 1:(nl-1)) ps[jj,,,] <- ww(aa, bb, paste0(EOIc[ii],jj), nR)
-    ps[nl,,,] <- ww(aa, bb, 'Intercept', nR)
-    psa <- array(0, dim=c(nl, ns, nR, nR)) # posterior samples adjusted
-    for(jj in 1:(nl-1)) {
-      psa[jj,,,] <- ps[nl,,,] + ps[jj,,,]
-      psa[nl,,,] <- psa[nl,,,] + ps[jj,,,]
-    }
-    psa[nl,,,] <- ps[nl,,,] - psa[nl,,,]  # reference level
-    dimnames(psa)[[3]] <- dimnames(bb$mmROI1ROI2)[[2]]
-    dimnames(psa)[[4]] <- dimnames(bb$mmROI1ROI2)[[2]]
-
-    #oo <- array(apply(psa, 1, vv, ns, nR), dim=c(nR, nR, 8, nl))
-    #dimnames(oo)[[3]] <- c('mean', 'sd', 'P+', '2.5%', '5%', '50%', '95%', '97.5%')
-
-    cat(sprintf('===== Summary of region pair effects for %s =====', EOIc[ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    for(jj in 1:nl) {
-      cat(sprintf('----- %s level: %s', EOIc[ii], lvl[jj]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-      oo <- vv(psa[jj,,,], ns, nR)
-      prnt(90, 1, res(bb, oo, 0.1, 3),  outFN, 'region pairs')
-      prnt(95, 1, res(bb, oo, 0.05, 3),  outFN, 'region pairs')
-      prnt(95, 2, res(bb, oo, 0.025, 3), outFN, 'region pairs')
-      cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-      mPlot(oo, paste0(EOIc[ii], '_', lvl[jj]))
-    }
-
-    cat(sprintf('===== Summary of region pair effects for %s comparisons =====', EOIc[ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    for(jj in 1:(nl-1)) for(kk in (jj+1):nl) {
-      cat(sprintf('----- level comparison: %s vs %s', lvl[jj], lvl[kk]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-      oo <- vv(psa[jj,,,] - psa[kk,,,], ns, nR)
-      prnt(90, 1, res(bb, oo, 0.1),   outFN, 'region pairs')
-      prnt(95, 1, res(bb, oo, 0.05),  outFN, 'region pairs')
-      prnt(95, 2, res(bb, oo, 0.025), outFN, 'region pairs')
-      cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-      mPlot(oo, paste0(EOIc[ii], '_', lvl[jj], 'vs', lvl[kk]))
-    }
-  }
-
-  ########## region effects #############
-  # posterior samples at ROIs for a term
-
-  #gg <- psROI(aa, bb, 'Intercept', nR)
-
-  # summary for ROIs: nd - number of digits to output
-
-  #gg <- sumROI(gg, ns, 3)
-
-  # for Intercept and quantitative variables
-  if(any(!is.na(EOIq) == TRUE)) for(ii in 1:length(EOIq)) {
-    cat(sprintf('===== Summary of region effects for %s =====', EOIq[ii]),
-        file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    gg <- sumROI(psROI(aa, bb, EOIq[ii], nR), ns, 3)
-    cat(utils::capture.output(gg), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  }
-
-  # for contrasts among quantitative variables
-  if(any(!is.na(qContr) == TRUE)) for(ii in 1:(length(qContrL)/2)) {
-    cat(sprintf('===== Summary of region effects for %s vs %s =====', qContrL[2*ii-1], qContrL[2*ii]),
-        file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    gg <- sumROI(psROI(aa, bb, qContrL[2*ii-1], nR) - psROI(aa, bb, qContrL[2*ii], nR), ns, 3)
-    cat(utils::capture.output(gg), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  }
-
-  # for factor
-  if(any(!is.na(EOIc) == TRUE)) for(ii in 1:length(EOIc)) {
-    lvl <- levels(dataTable[[EOIc[ii]]])  # levels
-    nl <- nlevels(dataTable[[EOIc[ii]]])  # number of levels: last level is the reference in deviation coding
-    ps <- array(0, dim=c(nl, ns, nR)) # posterior samples
-    for(jj in 1:(nl-1)) ps[jj,,] <- psROI(aa, bb, paste0(EOIc[ii],jj), nR)
-    ps[nl,,] <- psROI(aa, bb, 'Intercept', nR) # Intercept: averge effect
-    psa <- array(0, dim=c(nl, ns, nR)) # posterior samples adjusted
-    for(jj in 1:(nl-1)) {
-      psa[jj,,] <- ps[nl,,]  + ps[jj,,]
-      psa[nl,,] <- psa[nl,,] + ps[jj,,]
-    }
-    psa[nl,,] <- ps[nl,,] - psa[nl,,]  # reference level
-    dimnames(psa)[[3]] <- dimnames(bb$mmROI1ROI2)[[2]]
-
-    oo <- apply(psa, 1, sumROI, ns, 3)
-
-    cat(sprintf('===== Summary of region effects for %s =====', EOIc[ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    for(jj in 1:nl) {
-      cat(sprintf('----- %s level: %s', EOIc[ii], lvl[jj]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-      cat(utils::capture.output(oo[[jj]]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-      cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    }
-
-    cat(sprintf('===== Summary of region effects for %s comparisons =====', EOIc[ii]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    for(jj in 1:(nl-1)) for(kk in (jj+1):nl) {
-      cat(sprintf('----- level comparison: %s vs %s', lvl[jj], lvl[kk]), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-      oo <- sumROI(psa[jj,,] - psa[kk,,], ns, 3)
-      cat(utils::capture.output(oo), file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-      cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-    }
-  }
-
-  # save it again
-  save.image(file=paste0(outFN, ".RData"))
-  cat("\nCongratulations! The above results are saved in file ", outFN, "\n\n", sep='')
-}
 
 first.in.path <- function(file) {
   ff <- paste(strsplit(Sys.getenv('PATH'),':')[[1]],'/', file, sep='')
@@ -840,110 +957,268 @@ first.in.path <- function(file) {
   return(gsub('//','/',ff[1], fixed=TRUE))
 }
 
-setup_dataTable <- function(data_path,model,MD,r2z,cVars,qVars,stdz,
-                            qContr,Y,Subj,ROI1, ROI2){
+pprefix.AFNI.name <- function(an) {
+   if (is.character(an)) an <- parse.AFNI.name(an);
+   return(an$pprefix);
+}
 
-  dataTable <- utils::read.table(data_path,header=T)
-  # standardize the names for Y, ROI and subject
-  names(dataTable)[names(dataTable)==Subj] <- 'Subj'
-  names(dataTable)[names(dataTable)==Y] <- 'Y'
-  names(dataTable)[names(dataTable)==ROI1] <- 'ROI1'
-  names(dataTable)[names(dataTable)==ROI2] <- 'ROI2'
+prefix.AFNI.name <- function(an) {
+   if (is.character(an)) an <- parse.AFNI.name(an);
+   return(an$prefix);
+}
 
-  # make sure ROI1, ROI2 and Subj are treated as factors
-  if(!is.factor(dataTable$ROI1)) dataTable$ROI1 <- as.factor(dataTable$ROI1)
-  if(!is.factor(dataTable$ROI2)) dataTable$ROI2 <- as.factor(dataTable$ROI2)
-  if(!is.factor(dataTable$Subj)) dataTable$Subj <- as.factor(dataTable$Subj)
+view.AFNI.name <- function(an) {
+   if (is.character(an)) an <- parse.AFNI.name(an);
+   return(an$view);
+}
 
-  # verify variable types
-  if(model==1) terms <- 1 else terms <- strsplit(model, '\\+')[[1]]
-  if(length(terms) > 1) {
-    #terms <- terms[terms!='1']
-    for(ii in 1:length(terms)) {
-      if(!is.null(cVars[1])) if(terms[ii] %in% strsplit(cVars, '\\,')[[1]] & !is.factor(dataTable[[terms[ii]]])) # declared factor with quantitative levels
-        dataTable[[terms[ii]]] <- as.factor(dataTable[[terms[ii]]])
-      if(terms[ii] %in% strsplit(qVars, '\\,')[[1]] & is.factor(dataTable[[terms[ii]]])) # declared numerical variable contains characters
-        stop(sprintf('Column %s in the data table is declared as numerical, but contains characters!', terms[ii]))
+pv.AFNI.name <- function(an) {
+   if (is.character(an)) an <- parse.AFNI.name(an);
+   return(paste(an$pprefix,an$view,sep=''));
+}
+
+head.AFNI.name <- function(an) {
+   if (is.character(an)) an <- parse.AFNI.name(an);
+   if (an$type == 'BRIK' && !is.na(an$view)) {
+      return(paste(an$pprefix,an$view,".HEAD",sep=''));
+   } else {
+      return((an$orig_name));
+   }
+}
+
+brik.AFNI.name <- function(an) {
+   if (is.character(an)) an <- parse.AFNI.name(an);
+   if (an$type == 'BRIK' && !is.na(an$view)) {
+      return(paste(an$pprefix,an$view,".BRIK",sep=''));
+   } else {
+      return((an$orig_name));
+   }
+}
+
+compressed.AFNI.name <- function(an) {
+   if (is.character(an)) an <- parse.AFNI.name(an);
+   if (length(grep('\\.gz$', an$ext))) {
+      return('gz')
+   } else if (length(grep('\\.bz2$', an$ext))) {
+      return('bz2')
+   } else if (length(grep('\\.Z$', an$ext))) {
+      return('Z')
+   } else {
+      return('')
+   }
+
+}
+
+modify.AFNI.name <- function (name, what="append", val="_new", cwd=NULL) {
+   if (!is.loaded('R_SUMA_ParseModifyName')) {
+      err.AFNI("Missing R_io.so");
+      return(NULL);
+   }
+   an <- .Call("R_SUMA_ParseModifyName",
+               name = name,
+               what = what,
+               val = val,
+               cwd = cwd)
+   return(an)
+}
+
+
+parse.AFNI.name <- function(filename, verb = 0) {
+  if (filename == '-self_test') { #Secret testing flag
+      note.AFNI('Function running in test mode');
+      show.AFNI.name(parse.AFNI.name('DePath/hello.DePrefix', verb))
+      show.AFNI.name(parse.AFNI.name('DePath/DePrefix+acpc', verb))
+      show.AFNI.name(parse.AFNI.name('DePath/DePrefix+acpc.', verb))
+      show.AFNI.name(parse.AFNI.name('DePath/DePrefix+acpc.HEAD', verb))
+      show.AFNI.name(parse.AFNI.name('DePath/DePrefix+acpc.BRIK.gz', verb))
+      show.AFNI.name(parse.AFNI.name('DePath/DePrefix+acpc.HEAD[23]', verb))
+      show.AFNI.name(
+         parse.AFNI.name('DePath/DePrefix+acpc.HEAD[DeLabel]{DeRow}', verb))
+      show.AFNI.name(
+         parse.AFNI.name('DePath/DePrefix+acpc[DeLabel]{DeRow}', verb))
+      show.AFNI.name(
+         parse.AFNI.name('DePath/DePrefix+acpc.[DeLabel]{DeRow}', verb))
+      return(NULL)
+   }
+   an <- list()
+   an$view <- NULL
+   an$pprefix <- NULL
+   an$brsel <- NULL;
+   an$rosel <- NULL;
+   an$rasel <- NULL;
+   an$insel <- NULL;
+   an$type <- NULL;
+   an$path <- NULL;
+   an$orig_name <- filename;
+   an$file <- NULL;
+
+   if (verb) { cat ('Parsing >>',filename,'<<\n', sep=''); }
+   if (!is.character(filename)) {
+      warning(paste('filename >>',
+                     filename, '<< not a character string\n', sep=''),
+                 immediate. = TRUE);
+      traceback();
+      return(NULL);
+   }
+   #Deal with special names:
+   if (length(grep("^1D:.*$",filename))) {
+      an$type = '1Ds'
+      return(an)
+   } else if (length(grep("^R:.*$",filename))) {
+      an$type = 'Rs'
+      return(an)
+   }
+
+   #Deal with selectors
+   n <- parse.AFNI.name.selectors(filename, verb)
+   filename <- n$name
+   an$file  <- n$name
+   an$brsel <- n$brsel;
+   an$rosel <- n$rosel;
+   an$rasel <- n$rasel;
+   an$insel <- n$insel;
+
+   #Remove last dot if there
+   filename <- sub('\\.$','',filename)
+
+   #NIFTI?
+   n <- strip.extension(filename, c('.nii', '.nii.gz'), verb)
+   if (n$ext != '') {
+      an$ext <- n$ext
+      an$type <- 'NIFTI'
+      an$pprefix <- n$name_noext
+   } else {
+      #remove other extensions
+      n <- strip.extension(filename, c('.HEAD','.BRIK','.BRIK.gz',
+                                       '.BRIK.bz2','.BRIK.Z',
+                                       '.1D', '.1D.dset',
+                                       '.niml.dset',
+                                       '.'  ),
+                           verb)
+      if (n$ext == '.1D' || n$ext == '.1D.dset') {
+         an$type <- '1D'
+      } else if (n$ext == '.niml.dset') {
+         an$type <- 'NIML'
+      } else {
+         an$type <- 'BRIK'
+      }
+
+      if (n$ext == '.') {
+         n$ext <- ''
+      }
+      an$ext <- n$ext
+      filename <- n$name_noext
+
+      n <- strip.extension(filename, c('+orig','+tlrc','+acpc'), verb)
+      if (n$ext != '') {
+         an$view <- n$ext
+      } else {
+         an$view <- NA
+      }
+      an$pprefix <- n$name_noext
+   }
+
+   #a prefix with no path
+   an$prefix <- basename(an$pprefix)
+
+   #and the path
+   an$path <- dirname(an$orig_name)
+
+   if (verb > 2) {
+      note.AFNI("Browser not active");
+      # browser()
+   }
+   if (  an$type != '1D' && (
+         !is.null(an$brsel) || !is.null(an$rosel) ||
+         !is.null(an$rasel) || !is.null(an$insel))) {
+       #Remove trailing quote if any
+       an$prefix <- gsub("'$", '', an$prefix);
+       an$prefix <- gsub('"$', '', an$prefix);
+       an$pprefix <- gsub("'$",'', an$pprefix);
+       an$pprefix <- gsub('"$','', an$pprefix);
+   }
+
+   if ( an$type != 'BRIK' ) {
+      #Put the extension back on
+      an$pprefix <- paste(an$pprefix,an$ext, sep='');
+      an$prefix <- paste(an$prefix,an$ext, sep='');
+   }
+  return(an)
+}
+
+exists.AFNI.name <- function(an) {
+   if (is.character(an)) an <- parse.AFNI.name(an);
+
+   ans <- 0
+   if (file.exists(head.AFNI.name(an))) ans <- ans + 1;
+
+   if (file.exists(brik.AFNI.name(an)) ||
+       file.exists(paste(brik.AFNI.name(an),'.gz', sep='')) ||
+       file.exists(paste(brik.AFNI.name(an),'.Z', sep=''))) ans <- ans + 2;
+   return(ans);
+}
+
+AFNI.new.options.list <- function(history = '', parsed_args = NULL) {
+  lop <- list (com_history = history);
+  #Look for defaults
+  lop$overwrite <- FALSE
+  for (i in 1:length(parsed_args)) {
+    opname <- strsplit(names(parsed_args)[i],'^-')[[1]];
+    opname <- opname[length(opname)];
+    switch(opname,
+           overwrite = lop$overwrite <- TRUE )
+  }
+  return(lop)
+}
+
+parse.AFNI.name.selectors <- function(filename,verb=0) {
+  n <- list()
+  n$brsel<- NULL;
+  n$rosel<- NULL;
+  n$rasel<- NULL;
+  n$insel<- NULL;
+
+  selecs <- strsplit(filename,"\\[|\\{|<|#")[[1]];
+  n$name <- selecs[1]
+  for (ss in selecs[2:length(selecs)]) {
+    if (length(grep("]",ss))) {
+      n$brsel <- strsplit(ss,"\\]")[[1]][1];
+    } else if (length(grep("}",ss))) {
+      n$rosel <- strsplit(ss,"\\}")[[1]][1];
+    } else if (length(grep(">",ss))) {
+      n$rasel <- strsplit(ss,">")[[1]][1];
     }
   }
-
-  dataTable$w <- 1
-  
-  # standardization
-  if(!is.na(stdz)) {
-    sl <- strsplit(stdz, '\\,')[[1]]
-    for(ii in 1:length(sl)) if(is.numeric(dataTable[[sl[ii]]]))
-      dataTable[[sl[ii]]] <- scale(dataTable[[sl[ii]]], center = TRUE, scale = TRUE) else
-        stop(sprintf('The column %s is categorical, not numerical! Why are you asking me to standardize it?', sl[ii]))
+  selecs <- strsplit(filename,"#")[[1]];
+  if (length(selecs) > 1) {
+    n$insel <- selecs[2]
   }
 
-    # number of ROIs
-  nR <- get_nR(dataTable)
-
-  if(!MD) if(nlevels(dataTable$Subj)*nR*(nR-1)/2 < nrow(dataTable))
-    stop(sprintf('Error: with %d regions and %d subjects, it is expected to have %d rows per subject, leading to toally %d rows in the input data table. However, there are only %d rows. If you have missing data, use option -MD', nR, nlevels(dataTable$Subj), nR*(nR-1)/2, nlevels(dataTable$Subj)*nR*(nR-1)/2, nrow(dataTable)))
-
-  
-
-  if(any(!is.na(qContr))) {
-    qContrL <- unlist(strsplit(qContr, '\\,'))
-    # verify 'vs' in alternating location
-    ll <- which(qContrL %in% 'vs')
-    if(!all(ll == seq(2,300,3)[1:length(ll)]))
-      stop(sprintf('Quantitative contrast specification -qContr is incorrect!'))
-    qContrL <- qContrL[!qContrL %in% 'vs']
-    # verify that variable names are correct
-    if(!all(qContrL %in% c(QV, 'Intercept')))
-      stop(sprintf('At least one of the variable labels in quantitative contrast specification -qContr is incorrect!'))
-  }
-
-  dataTable
+  return(n)
 }
 
-get_nR <- function(dataTable){
-    length(union(levels(dataTable$ROI1), levels(dataTable$ROI2)))
+strip.extension <- function (filename, extvec=NULL, verb=0) {
+  n <- list()
+  if (is.null(extvec)) {
+    ff <- strsplit(filename, '\\.')[[1]]
+    if (length(ff) > 1) {
+      n$ext <- paste('.',ff[length(ff)], sep='')
+      n$name_noext <- paste(ff[1:length(ff)-1],collapse='.')
+    } else {
+      n$ext <- ''
+      n$name_noext <- filename
+    }
+  } else {
+    n$ext <- ''
+    n$name_noext <- filename
+    for (ex in extvec) {
+      patt <- paste('\\',ex,'$',collapse='', sep='')
+      if (length(grep(patt, filename))) {
+        n$ext <- ex
+        n$name_noext <- sub(patt,'',filename)
+        return(n)
+      }
+    }
+  }
+  return(n)
 }
-
-run_mba <- function(dataTable,model,chains,iterations){
-  set.seed(1234)
-  if(model==1) {
-  
-    modelForm <- stats::as.formula(paste('Y ~ 1 + (1|Subj) + (1|ROI1:ROI2) +
-        (1|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE)) +
-        (1|mm(ROI1:Subj, ROI2:Subj, weights = cbind(w, w), scale=FALSE))'))
-  }else{
-  
-    modelForm <- stats::as.formula(paste('Y~', model, '+(1|Subj)+(', model, '|ROI1:ROI2)+(',
-                                         model, '|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE))'))
-  }
-  if(model==1){
-  
-    fm <- brm(modelForm, data=dataTable, chains = chains,
-                    iter=iterations, control = list(adapt_delta = 0.99, max_treedepth = 15))
-  }else{
-  
-    fm <- brm(modelForm, data=dataTable,
-                    prior=c(prior(normal(0, 1), class = "Intercept"),prior(normal(0, 0.5), class = "sd")),
-                    chains = chains, iter=iterations, control = list(adapt_delta = 0.99, max_treedepth = 15))
-    fm
-  }
-}
-
-log_setup_info <- function(dataTable,outFN){
-  nR <- get_nR(dataTable)
-  cat('===== Summary of variable information =====', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat(sprintf('Total number of ROIs: %i', nR),
-      file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat(sprintf('Response variable Y - mean: %f; SD: %f', mean(dataTable$Y), stats::sd(dataTable$Y)),
-      file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  outDF(summary(dataTable$Y), outFN)
-  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat('Data structure:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  outDF(utils::str(dataTable), outFN)
-  cat('Subjects:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  outDF(summary(dataTable$Subj), outFN)
-  cat('ROIs:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  outDF(summary(dataTable$ROI1), outFN)
-  outDF(summary(dataTable$ROI2), outFN)
-  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  }
