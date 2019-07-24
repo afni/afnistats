@@ -73,7 +73,8 @@ get_df_arg <- function(parsed_help){
     purrr::set_names(purrr::map(arguments,'arg')) %>%
     tibble::enframe() %>%
     dplyr::rename(dest = name) %>%
-    tidyr::separate(value,sep=':',c('metavar','type','nargs','help'),extra='merge') %>%
+    tidyr::separate(value,sep='\\(cli_info: ',c('help','metadata')) %>%
+    tidyr::separate('metadata',sep=',',c('metavar','type','nargs')) %>%
     dplyr::mutate(
       nargs = fix_nargs(nargs),
       help = fix_help_string(help),
@@ -87,6 +88,7 @@ get_df_arg <- function(parsed_help){
 
 fix_nargs <- function(nargs){
   nargs %>%
+    stringr::str_replace('\\)','') %>%
     purrr::map(purrr::quietly(as.integer)) %>%
     purrr::map_int('result') %>%
     purrr::map( ~if (is.na(.x)){'+'} else{.x})
