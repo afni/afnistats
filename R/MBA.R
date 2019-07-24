@@ -193,7 +193,7 @@
 #' @example vignettes/MBA-demo.Rmd
 MBA <- function(dataTable,prefix="result",chains=4,iterations=1000,model=1,MD=FALSE,
                 r2z=FALSE, cVars=NULL, qVars='Intercept', stdz=NA, EOI='Intercept', qContr=NA,
-                Y='Y', Subj='Subj', ROI1='ROI1', ROI2='ROI2', verb=0,dbgArgs=FALSE){
+                Y='Y', Subj='Subj', ROI1='ROI1', ROI2='ROI2',do_not_fit_model=FALSE, verb=0,dbgArgs=FALSE){
 
 
   dpath <-dataTable
@@ -225,9 +225,10 @@ MBA <- function(dataTable,prefix="result",chains=4,iterations=1000,model=1,MD=FA
   ptm <- proc.time()
 
   ##################### MCMC ####################
-  fm <- run_mba(dataTable,model,chains,iterations)
-
-
-  post_process(fm,outFN,iterations,chains,EOIq,EOIc,qContr,ptm,get_nR(dataTable))
+  if (!do_not_fit_model){
+    fm <- run_mba(dataTable,model,chains,iterations)
+    post_process(fm,outFN,iterations,chains,EOIq,EOIc,qContr,ptm,get_nR(dataTable))
+  }else fm <-  NA
+  fm
 }
 
