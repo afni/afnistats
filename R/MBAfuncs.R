@@ -210,7 +210,7 @@ setup_dataTable <- function(data_path,model,MD,r2z,cVars,qVars,stdz,
   dataTable$w <- 1
 
   # standardization
-  if(!is.na(stdz)) {
+  if(!is.null(stdz)) {
     sl <- strsplit(stdz, '\\,')[[1]]
     for(ii in 1:length(sl)) if(is.numeric(dataTable[[sl[ii]]]))
       dataTable[[sl[ii]]] <- scale(dataTable[[sl[ii]]], center = TRUE, scale = TRUE) else
@@ -225,7 +225,7 @@ setup_dataTable <- function(data_path,model,MD,r2z,cVars,qVars,stdz,
 
 
 
-  if(any(!is.na(qContr))) {
+  if(any(!is.null(qContr))) {
     qContrL <- unlist(strsplit(qContr, '\\,'))
     # verify 'vs' in alternating location
     ll <- which(qContrL %in% 'vs')

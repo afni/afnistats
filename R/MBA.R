@@ -71,9 +71,9 @@
 #'              being positive >= 0.90 or <= 0.10)
 #'     white  - anything else
 #'
-#'@param dataTable Path. Path to the file on disk that contains the data structure. The data structure should be a table in long format (cf. wide
+#'@param dataTable PATH or DATA_AS_STRING:character:1: Path to the file on disk that contains the data structure. The data structure should be a table in long format (cf. wide
 #' format) in R with a header as the first line.
-#' @param prefix PREFIX. Prefix is used to specify output file names. The main output is
+#' @param prefix PREFIX:character:1:  Prefix is used to specify output file names. The main output is
 #' a text with prefix appended with .txt and stores inference information
 #' for effects of interest in a tabulated format depending on selected
 #' options. The prefix will also be used for other output files such as
@@ -81,17 +81,17 @@
 #' mode. The .RData can be used for post hoc processing such as customized
 #' processing and plotting. Remove the .RData file to save disk space once
 #' you deem such a file is no longer useful.
-#'@param chains N. Specify the number of Markov chains. Make sure there are enough
+#'@param chains N:integer:1: Specify the number of Markov chains. Make sure there are enough
 #' processors available on the computer. Most of the time 4 cores are good
 #' enough. However, a larger number of chains (e.g., 8, 12) may help achieve
 #' higher accuracy for posterior distribution. Choose 1 for a single-processor
 #' computer, which is only practical only for simple models.
-#'@param iterations N. Specify the number of iterations per Markov chain. Choose 1000 (default)
+#'@param iterations N:integer:1: Specify the number of iterations per Markov chain. Choose 1000 (default)
 #' for simple models (e.g., one or no explanatory variables). If convergence
 #' problem occurs as indicated by Rhat being great than 1.1, increase the number of
 #' iterations (e.g., 2000) for complex models, which will lengthen the runtime.
 #' Unfortunately there is no way to predict the optimum iterations ahead of time.
-#'@param model FORMULA. This option specifies the effects associated with explanatory
+#'@param model FORMULA:character:1: This option specifies the effects associated with explanatory
 #' variables. By default (without user input) the model is specified as
 #' 1 (Intercept). Currently only between-subjects factors (e.g., sex,
 #' patients vs. controls) and quantitative variables (e.g., age) are
@@ -103,25 +103,25 @@
 #' additive effects of A and B, A:B is the interaction between A
 #' and B, and A*B = A+B+A:B. Subject as a variable should not occur in
 #' the model specification here.
-#'@param MD  This option indicates that there are missing data in the input. With n
+#'@param MD ' ':logical:0:  This option indicates that there are missing data in the input. With n
 #' regions, at least n(n-1)/2 values are assumed from each subject in the
 #' input with no missing data (default). When missing data are present,
 #' invoke this option so that the program will handle it properly.
-#'@param r2z  This option performs Fisher transformation on the response variable
+#'@param r2z ' ':logical:0:  This option performs Fisher transformation on the response variable
 #' (column Y) if it is correlation coefficient. Do not invoke the option
 #' if the transformation has already been applied or the variable is
 #' not correlation coefficient.
-#'@param cVars variable_list. Identify categorical (qualitive) variables (or
+#'@param cVars CSV_STRING:character:1: Identify categorical (qualitive) variables (or
 #' factors) with this option. The list with more than one variable
 #' has to be separated with comma (,) without any other characters such
 #' as spaces and should be surrounded within (single or double) quotes.
 #' For example, -cVars "sex,site"
-#'@param qVars variable_list. Identify quantitative variables (or covariates) with
+#'@param qVars CSV_STRING:character:1: Identify quantitative variables (or covariates) with
 #' this option. The list with more than one variable has to be
 #' separated with comma (,) without any other characters such as
 #' spaces and should be surrounded within (single or double) quotes.
 #' For example, -qVars "Age,IQ"
-#'@param stdz variable_list. Identify quantitative variables (or covariates) to be
+#'@param stdz CSV_STRING:character:1: Identify quantitative variables (or covariates) to be
 #' standardized. To obtain meaningful and interpretable results and to
 #' achieve better convergence of Markov chains with reasonable iterations,
 #' it is recommended that all quantitative variables be standardized
@@ -131,13 +131,13 @@
 #' standardize the variable within each group before plugging the values
 #' into the data table. Currently MBA does not offer the option to perform
 #' within-group standardization.
-#'@param EOI variable_list. Identify effects of interest in the output by specifying the
+#'@param EOI CSV_STRING:character:1: Identify effects of interest in the output by specifying the
 #' variable names separated with comma (,). For example, -EOI \"sex,age\".
 #' By default the Intercept is considered to be an effect of interest.
 #' Currently only variables, not their interactions, can be directly
 #' requested for output. However, most interaction effects can be obtained by
 #' either properly coding the variables (see example 3) or post processing.
-#'@param qContr contrast_list. Identify comparisons of interest between quantitative
+#'@param qContr CSV_STRING:character:1: Identify comparisons of interest between quantitative
 #' variables in the output separated with comma (,). It only allows for
 #' pair-wise comparisons between two quantitative variables. For example,
 #' -qContr \"age vs IQ, age vs weight, IQ vs weight\", where V1, V2, and V3 are three
@@ -146,20 +146,21 @@
 #' meaningful (e.g., with the same scale and unit. This can be used to
 #' formulate comparisons among factor levels if the user quantitatively
 #' codes the factor levels.
-#'@param Y var_name. var_name is used to specify the column name that is designated as
+#'@param Y STRING:character:1: This is used to specify the column name that is designated as
 #' as the response/outcome variable. The default (when this option is not
 #' invoked) is 'Y'.
-#'@param Subj var_name. var_name is used to specify the column name that is designated as
+#'@param Subj STRING:character:1: This is used to specify the column name that is designated as
 #' as the measuring unit variable (usually subject). The default (when this
 #' option is not invoked) is 'Subj'.
-#'@param ROI1 var_name. var_name is used to specify the column name that is designated as
+#'@param ROI1 STRING:character:1: This var_name is used to specify the column name that is designated as
 #' as the region variable for the first set of each region pair. The default
 #' (when this option is not invoked) is 'ROI1'.
-#'@param ROI2 var_name. var_name is used to specify the column name that is designated as
+#'@param ROI2 STRING:character:1: This var_name is used to specify the column name that is designated as
 #' as the region variable for the second set of each region pair. The default
-#' (when this option is not invoked) is 'ROI2'.
-#'@param verb VERB. Speicify verbose
-#'@param dbgArgs No longer used
+#' (when this option is not invoked) is 'ROI2'. (cli_info)
+#' @param do_not_fit_model ' ':logical:0: Do not fit the model
+#'@param verb path:character:1: Specify verbosity
+#'@param dbgArgs path:character:1: No longer used
 #'
 #' @note 1) There should have at least four columns in the table. These minimum
 #' four columns can be in any order but with fixed and reserved with labels:
@@ -192,7 +193,7 @@
 #' @import brms
 #' @example vignettes/MBA-demo.Rmd
 MBA <- function(dataTable,prefix="result",chains=4,iterations=1000,model=1,MD=FALSE,
-                r2z=FALSE, cVars=NULL, qVars='Intercept', stdz=NA, EOI='Intercept', qContr=NA,
+                r2z=FALSE, cVars=NULL, qVars='Intercept', stdz=NULL, EOI='Intercept', qContr=NULL,
                 Y='Y', Subj='Subj', ROI1='ROI1', ROI2='ROI2',do_not_fit_model=FALSE, verb=0,dbgArgs=FALSE){
 
 
@@ -204,10 +205,10 @@ MBA <- function(dataTable,prefix="result",chains=4,iterations=1000,model=1,MD=FA
   if(is.null(cVars)) EOIc <- NA else
     EOIc <- intersect(strsplit(EOI, '\\,')[[1]], strsplit(cVars, '\\,')[[1]])
 
-  
+
   dataTable <- setup_dataTable(dpath,model,MD,r2z,cVars,qVars,stdz,
                                qContr,Y,Subj,ROI1, ROI2)
-  
+
   log_setup_info(dataTable,outFN)
 
   # deviation coding: -1/0/1 - the intercept is associated with the mean across the levels of the factor
