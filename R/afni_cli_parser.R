@@ -3,10 +3,11 @@
 magrittr::`%>%`
 
 
-parse_error <- function(c){
+parser_error <- function(c){
   msg <- conditionMessage(c)
-  if (msg %>% stringr::str_detect("parse error:")){
-    cat(msg %>% stringr::str_split("parse error:") %>% purrr::map_chr(2))
+  error_pat <- "parse error:|help requested:"
+  if (msg %>% stringr::str_detect(error_pat)){
+    cat(msg %>% stringr::str_split(error_pat) %>% purrr::map_chr(2))
   }
   opt <- options(show.error.messages = FALSE)
   on.exit(options(opt))
@@ -19,7 +20,7 @@ run_tool <- function(toolname,package="afnistats",catch_error=TRUE,user_args=com
 
   parser <- create_parser_from_function(toolname,package)
   tryCatch(parsed_ops <- parser$parse_args(user_args),
-           error = function(c){if (catch_error) parse_error(c) else{stop(c)}},
+           error = function(c){if (catch_error) parser_error(c) else{stop(c)}},
            quietly = TRUE
   )
 
@@ -35,7 +36,7 @@ create_parser_from_function <- function(topic="MBA",package="afnistats"){
 create_parser_from_help <- function(parsed_help){
 
   parser <- argparse::ArgumentParser(description=fix_help_string(parsed_help$description),add_help=FALSE)
-  parser$add_argument('-help','-h',action='help') # add AFNI's help flag
+  parser$add_argument('-help',action='help') # add AFNI's help flag
   df_arg <- get_df_arg(parsed_help)
   df_arg %>%
     dplyr::group_by(1:dplyr::n()) %>%
