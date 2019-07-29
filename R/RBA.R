@@ -261,7 +261,7 @@ outDF(summary(dataTable$ROI), outFN)
 
 cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
 
-if(!MD) if(nlevels(dataTable$Subj)*nR < nrow(dataTable))
+if(!MD) if(nlevels(dataTable$Subj)*nR > nrow(dataTable))
    stop(sprintf('Error: with %d regions and %d subjects, it is expected to have %d rows per subject, leading to toally %d rows in the input data table. However, there are only %d rows. If you have missing data, use option -MD', nR, nlevels(dataTable$Subj), nR, nlevels(dataTable$Subj)*nR, nrow(dataTable)))
 
 EOIq <- strsplit(qVars, '\\,')[[1]]
