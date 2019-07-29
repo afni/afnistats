@@ -1,7 +1,7 @@
-sumGLM <- function(ll, tm, nR, DF, nd) {
+sumGLM <- function(dataTable,ll, tm, nR, DF, nd) {
    th <- qt(c(0.025, 0.05, 0.5, 0.95, 0.975), DF)
-   rr <- matrix(, nrow = nR, ncol = 8, dimnames=list(levels(lop$dat$ROI), c('mean', 'SD', '2-sided-p', '2.5%', '5%', '50%', '95%', '97.5%')))
-   rownames(rr) <- levels(lop$dat$ROI)
+   rr <- matrix(, nrow = nR, ncol = 8, dimnames=list(levels(dataTable$ROI), c('mean', 'SD', '2-sided-p', '2.5%', '5%', '50%', '95%', '97.5%')))
+   rownames(rr) <- levels(dataTable$ROI)
    if(tm == 'Intercept') tm <- '(Intercept)'
    for(ii in 1:nR) {
      u1 <- ll[[ii]]$coefficients[tm,1] # mean
