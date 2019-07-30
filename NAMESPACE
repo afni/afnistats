@@ -2,6 +2,8 @@
 
 export("%>%")
 export(MBA)
+export(RBA)
+export(create_parser_from_function)
 export(example_func_for_parsing)
 export(run_tool)
 export(whatever)
