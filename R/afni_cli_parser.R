@@ -214,7 +214,7 @@ check_func_sig_and_doc_args <- function(parsed_help,df_init,arg_defaults){
 
   # Check that NA was not specified as a default arg
   if (any(is.na(arg_defaults))){
-    stop("A default of NA was specificied for an argument. This is not allowed. NULL is a possibly alternative.")
+    stop("A default of NA was specificied for an argument. This is not allowed when generating a CLI. NULL is a possibly alternative.")
   }
   }
 
