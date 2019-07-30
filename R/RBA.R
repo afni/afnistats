@@ -270,7 +270,7 @@ EOIq <- intersect(strsplit(EOI, '\\,')[[1]], EOIq)
 if(is.null(cVars)) EOIc <- NA else
    EOIc <- intersect(strsplit(EOI, '\\,')[[1]], strsplit(cVars, '\\,')[[1]])
 
-if(!is.na(qContr)) {
+if(!is.null(qContr)) {
    qContrL <- unlist(strsplit(qContr, '\\,'))
    # verify 'vs' in alternating location
    ll <- which(qContrL %in% 'vs')
@@ -292,7 +292,7 @@ options(mc.cores = parallel::detectCores())
 if(r2z) dataTable$Y <- fisher(dataTable$Y)
 
 # standardization
-if(!is.na(stdz)) {
+if(!is.null(stdz)) {
    sl <- strsplit(stdz, '\\,')[[1]]
    for(ii in 1:length(sl)) if(is.numeric(dataTable[[sl[ii]]]))
       dataTable[[sl[ii]]] <- scale(dataTable[[sl[ii]]], center = TRUE, scale = TRUE) else
