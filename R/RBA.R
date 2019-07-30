@@ -54,13 +54,15 @@
 #'    the probability that the effect is postive conditional on the current
 #'    dataset. The following criterion for highlighting the results is only
 #'    suggestive:
-#'    \preformatted{ P+ >= 0.975 or <= 0.025 - very strong evidence
+#'    \preformatted{
+#'     P+ >= 0.975 or <= 0.025 - very strong evidence
 #'     P+ >= 0.95 or <= 0.05   - strong evidence
 #'     P+ >= 0.90 or <= 0.10   - moderate evidence
 #'     else                    - little evidence}
 #'    The same criterion is applied to the color coding in the posterior
 #'    distribution plots generated with the option -PDP:
-#'     \preformatted{P+ >= 0.975 or <= 0.025 - green:    very strong evidence
+#'     \preformatted{
+#'     P+ >= 0.975 or <= 0.025 - green:    very strong evidence
 #'     P+ >= 0.95 or <= 0.05   - yellow:   strong evidence
 #'     P+ >= 0.90 or <= 0.10   - gray:     moderate evidence
 #'     else                    - no color: little evidence}}
