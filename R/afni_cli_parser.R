@@ -124,8 +124,11 @@ fix_help_string <- function(string){
 parse_cli_info_str <- function(parsed_help){
   help_sections <-  parsed_help[names(parsed_help) == "section"]
   if (!length(help_sections)){return(tibble::tibble(dest=character()))}
-  tribble_str <- help_sections %>%
-    purrr::keep(~ stringr::str_detect(.x,stringr::regex("cli ?info", ignore_case = TRUE))) %>%
+  cli_section <- help_sections %>%
+    purrr::keep(~ stringr::str_detect(.x,stringr::regex("cli ?info", ignore_case = TRUE)))
+  if (!length(cli_section)){return(tibble::tibble(dest=character()))}
+
+  tribble_str <- cli_section  %>%
     stringr::str_split('~',n=2) %>%
     purrr::flatten() %>%
     .[[2]]
@@ -168,6 +171,7 @@ get_df_arg_new <- function(parsed_help){
 }
 
 get_df_arg <- function(parsed_help){
+  # Used the help + function signature for parser information
   arguments <- purrr::flatten(parsed_help['arguments'])
   cli_info <- parse_cli_info_str(parsed_help )
   arg_defaults <- formals(parsed_help$alias)
@@ -175,21 +179,26 @@ get_df_arg <- function(parsed_help){
   df_init <- purrr::map(arguments,'description') %>%
     purrr::set_names(purrr::map(arguments,'arg')) %>%
     tibble::enframe(name="dest",value="help") %>%
-    dplyr::left_join(cli_info,by="dest")
+    dplyr::left_join(cli_info,by="dest") %>%
+    dplyr::mutate(nargs= if("nargs" %in% names(.)) nargs else "1")
 
-  check_func_sig_and_doc_args_match(parsed_help,df_init,arg_defaults)
+
   df_arg <- df_init %>%
     dplyr::mutate(
       help = fix_help_string(help),
-      default = unname(arg_defaults[dest]), # Get the default values for the arguments
-      default = purrr::map(default,~ rlang::maybe_missing(.x,"Not required")), # the 'missing' symbol is nasty, get rid of it
+      default = fix_default_val(arg_defaults,dest), # Get the default values for the arguments
       required = dplyr::if_else(suppressWarnings(stringr::str_detect(default,"Not required")),TRUE,FALSE)
     )
 
+  check_func_sig_and_doc_args(parsed_help,df_init,arg_defaults)
   df_arg
 }
 
-check_func_sig_and_doc_args_match <- function(parsed_help,df_init,arg_defaults){
+fix_default_val <- function(arg_defaults,dest){
+  unname(arg_defaults[dest]) %>%
+    purrr::map(~ rlang::maybe_missing(.x,"Not required")) # the 'missing' symbol is nasty, get rid of it
+}
+check_func_sig_and_doc_args <- function(parsed_help,df_init,arg_defaults){
   x <- names(arg_defaults)
   y <- df_init$dest
   arg_diff <- c(setdiff(x,y),setdiff(y,x))
@@ -202,6 +211,11 @@ check_func_sig_and_doc_args_match <- function(parsed_help,df_init,arg_defaults){
       '. All arguments must be documented if you wish to produce a command line interface.'),
   collapse = '')
   if (length(arg_diff)) stop(undocumented_args_error)
+
+  # Check that NA was not specified as a default arg
+  if (any(is.na(arg_defaults))){
+    stop("A default of NA was specificied for an argument. This is not allowed. NULL is a possibly alternative.")
+  }
   }
 
 #' parse_help_topic
@@ -231,6 +245,7 @@ parse_help_topic <- function(topic,package_name){
 #' @param c Description of c
 #' @section Important:
 #' Don't run with scissors!
+#' @export
 #' @section Cli info:
 #' See \code{\link{create_parser_from_function}} for details on this section.
 #' \preformatted{
@@ -238,11 +253,11 @@ parse_help_topic <- function(topic,package_name){
 #' "x",    "STRING",   "character",   "1",
 #' "a",    "N",        "integer",     "1",
 #' "b",    "N",        "integer",     "1",
-#' "c",    "N",        "integer",     "+",
+#' "c",    "N",        "logical",     "+",
 #' }
-#' @export
-example_func_for_parsing <- function(x,a=NULL,b=NA,c="a value"){
-  print("sample")
+example_func_for_parsing <- function(x,a=NULL,b=5,c=TRUE){
+  output <- list(x=x,a=a,b=b,c=c)
+  output
 }
 
 
@@ -298,7 +313,7 @@ get_dev_help <- function(topic,package_name){
 expect_equal_param_df <- function(df1,df2){
   expect_equal(df1$default,df2$default)
   expect_equal(
-    df1 %>% dplyr::select(-default),
-    df2 %>% dplyr::select(-default)
+    df1 %>% dplyr::select(-default) %>% .[,order(colnames(.))],
+    df2 %>% dplyr::select(-default) %>% .[,order(colnames(.))]
   )
 }
