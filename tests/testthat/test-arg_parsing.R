@@ -36,8 +36,8 @@ test_that("user arg parsing for RBA from roxygen-generated parser", {
     rba_parser$parse_args(c('-dataTable','inst/extdata/tiny_data.txt','-prefix','output')),
     list(EOI = "Intercept", MD = FALSE, PDP = NULL, ROI = "ROI", Subj = "Subj", Y = "Y",
          cVars = NULL, chains = 1, dataTable = "inst/extdata/tiny_data.txt", dbgArgs = FALSE,
-         iterations = 1000, model = 1, prefix = "output", qContr = NULL, qVars = "Intercept",
-         r2z = FALSE, stdz = NULL, verb = 0)
+         do_not_fit_model = FALSE, iterations = 1000, model = 1, prefix = "output", qContr = NULL,
+         qVars = "Intercept", r2z = FALSE, stdz = NULL, verb = 0)
   )
 
 
@@ -57,7 +57,7 @@ test_that("arg parsing works for executable",{
     system.file('exec',package="afnistats"),
     system(stringr::str_c("RBA -prefix result_3 -dataTable ",data_path," -do_not_fit_model")),
     action = "prefix")
-  expect(!err_code)
+  expect(err_code == 0,failure_message = "RBA executable is not working")
 
 })
 #
