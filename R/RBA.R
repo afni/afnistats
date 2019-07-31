@@ -207,19 +207,19 @@
 #' "dataTable",    "PATH or DATA_AS_STRING","character",   "1",
 #' }
 RBA <- function(dataTable,prefix,chains=1, iterations=1000, model=1, cVars=NULL, qVars='Intercept', stdz=NULL, EOI='Intercept', qContr=NULL, Y='Y', Subj='Subj', ROI='ROI', PDP=NULL,
-dbgArgs=FALSE , MD=FALSE , r2z=FALSE, verb=0,overwrite=FALSE){
+dbgArgs=FALSE , MD=FALSE , r2z=FALSE, verb=0){
   dpath <-dataTable
   dataTable <- utils::read.table(dpath,header=T)
 
   outFN  <- pprefix.AFNI.name(prefix)
   an <- parse.AFNI.name(outFN)
-   if(!overwrite && (
-            file.exists(paste0(dataTable,".txt")) ||
-            file.exists(paste0(dataTable,".RData")) ||
-            file.exists(paste0(dataTable,".pdf"))) ) {
-         errex.AFNI(c("File ", dataTable, " exists! Try a different name.\n"))
-         return(NULL)
-   }
+   # if(!overwrite && (
+   #          file.exists(paste0(dataTable,".txt")) ||
+   #          file.exists(paste0(dataTable,".RData")) ||
+   #          file.exists(paste0(dataTable,".pdf"))) ) {
+   #       errex.AFNI(c("File ", dataTable, " exists! Try a different name.\n"))
+   #       return(NULL)
+   # }
 
 if(!is.null(cVars[1])) CV <- strsplit(cVars, '\\,')[[1]]
 if(!is.na(qVars[1])) QV <- strsplit(qVars, '\\,')[[1]]
