@@ -153,6 +153,8 @@
 #'  will be shown in each plot. So label the regions concisely.
 #'@param dataTable  List the data structure in a table of long format (cf. wide
 #'  format) in R with a header as the first line.
+#'@param do_not_fit_model Do not fit the model. This is useful for checking that
+#' command and data are being parsed correctly.
 #'@references If you want to cite the approach for RBA, consider the following:
 #'
 #'  Chen G, Xiao Y, Taylor PA, Riggins T, Geng F, Redcay E, 2019. Handling
@@ -186,28 +188,29 @@
 #'@section CLI info:
 #'See \code{\link{create_parser_from_function}} for details on this section.
 #' \preformatted{
-#' ~dest,         ~metavar,                ~type,         ~nargs,
-#' "prefix",       "PREFIX",                "character",   "1",
-#' "chains",       "N",                     "integer",     "1",
-#' "iterations",   "N",                     "integer",     "1",
-#' "verb",         "N",                     "integer",     "1",
-#' "model",        "FORMULA",               "character",   "1",
-#' "dbgArgs",      " ",                     "character",   "0",
-#' "MD",           " ",                     "character",   "0",
-#' "r2z",          " ",                     "character",   "0",
-#' "cVars",        "CSV_STRING",            "character",   "1",
-#' "qVars",        "CSV_STRING",            "character",   "1",
-#' "stdz",         "CSV_STRING",            "character",   "1",
-#' "EOI",          "CSV_STRING",            "character",   "1",
-#' "qContr",       "CSV_STRING",            "character",   "1",
-#' "Y",            "STRING",                "character",   "1",
-#' "Subj",         "STRING",                "character",   "1",
-#' "ROI",          "STRING",                "character",   "1",
-#' "PDP",          "NDIM",                  "integer",     "2",
-#' "dataTable",    "PATH or DATA_AS_STRING","character",   "1",
+#' ~dest,              ~metavar,                ~type,         ~nargs,
+#' "prefix",            "PREFIX",                "character",   "1",
+#' "chains",            "N",                     "integer",     "1",
+#' "iterations",        "N",                     "integer",     "1",
+#' "verb",              "N",                     "integer",     "1",
+#' "model",             "FORMULA",               "character",   "1",
+#' "dbgArgs",           " ",                     "logical",     "0",
+#' "MD",                " ",                     "logical",     "0",
+#' "r2z",               " ",                     "logical",     "0",
+#' "cVars",             "CSV_STRING",            "character",   "1",
+#' "qVars",             "CSV_STRING",            "character",   "1",
+#' "stdz",              "CSV_STRING",            "character",   "1",
+#' "EOI",               "CSV_STRING",            "character",   "1",
+#' "qContr",            "CSV_STRING",            "character",   "1",
+#' "Y",                 "STRING",                "character",   "1",
+#' "Subj",              "STRING",                "character",   "1",
+#' "ROI",               "STRING",                "character",   "1",
+#' "PDP",               "NDIM",                  "integer",     "2",
+#' "dataTable",         "PATH or DATA_AS_STRING","character",   "1",
+#' "do_not_fit_model",   " ",                     "logical",     "0",
 #' }
 RBA <- function(dataTable,prefix,chains=1, iterations=1000, model=1, cVars=NULL, qVars='Intercept', stdz=NULL, EOI='Intercept', qContr=NULL, Y='Y', Subj='Subj', ROI='ROI', PDP=NULL,
-dbgArgs=FALSE , MD=FALSE , r2z=FALSE, verb=0){
+dbgArgs=FALSE , MD=FALSE , r2z=FALSE, verb=0,do_not_fit_model=FALSE){
   dpath <-dataTable
   dataTable <- utils::read.table(dpath,header=T)
 
