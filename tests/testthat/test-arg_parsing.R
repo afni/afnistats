@@ -1,25 +1,65 @@
 # All "interface functions" should have help that can be used to construct a valid command line parsing object...
 
 
-load(system.file("extdata", "example_args_1.rda", package = "afnistats"))
-load(system.file("extdata", "example_parsed_args_1.rda", package = "afnistats"))
-
-
-
 # test_that("user arg parsing using old function", {
 #   expect_equal(example_parsed_args_1, parse_args(example_args_1))
 # })
 
 test_that("user arg parsing for MBA from roxygen-generated parser", {
-  parser <- create_parser_from_function("MBA","afnistats")
+  mba_parser <- create_parser_from_function("MBA","afnistats")
+
+  # Minimal args
+  expect_equal(
+    mba_parser$parse_args(c('-dataTable','inst/extdata/tiny_data.txt')),
+    list(EOI = "Intercept",MD = FALSE,ROI1 = "ROI1",ROI2 = "ROI2",Subj = "Subj",
+         Y = "Y",cVars = NULL,chains = 4,dataTable = "inst/extdata/tiny_data.txt",
+         dbgArgs = FALSE,do_not_fit_model = FALSE,iterations = 1000,model = 1,
+         prefix = "result",qContr = NULL,qVars = "Intercept",r2z = FALSE,stdz = NULL,verb = 0)
+  )
 
 
-  parsed_args <- parser$parse_args(example_args_1)
-  example_parsed_args_1 %>%  tibble::enframe() %>% dplyr::select(dplyr::vars(-help))
+  # some basic args
+  mba_args_1 <- readRDS(system.file("extdata", "mba_args_1.RData", package = "afnistats"))
+  mba_ref_file_1 <- system.file("extdata", "mba_parsed_args_1.RData", package = "afnistats")
+  expect_equal_to_reference(
+    mba_parser$parse_args(mba_args_1) %>% .[sort(names(.))],
+    mba_ref_file_1
+    )
 
-  expect_equal(example_parsed_args_1$ROI1, parsed_args$ROI1)
+  })
+
+test_that("user arg parsing for RBA from roxygen-generated parser", {
+  rba_parser <- create_parser_from_function("RBA","afnistats")
+
+  # Minimal args
+  expect_equal(
+    rba_parser$parse_args(c('-dataTable','inst/extdata/tiny_data.txt','-prefix','output')),
+    list(EOI = "Intercept", MD = FALSE, PDP = NULL, ROI = "ROI", Subj = "Subj", Y = "Y",
+         cVars = NULL, chains = 1, dataTable = "inst/extdata/tiny_data.txt", dbgArgs = FALSE,
+         iterations = 1000, model = 1, prefix = "output", qContr = NULL, qVars = "Intercept",
+         r2z = FALSE, stdz = NULL, verb = 0)
+  )
+
+
+
+
+  rba_parser$parse_args(c( "-dataTable" , "inst/extdata/tiny_data.txt", "-prefix" , "output","-PDP" , "4", "4"))
+  # Basic args
+  # rba_args_1 <- readRDS(system.file("extdata", "rba_args_1.RData", package = "afnistats"))
+  # rba_ref_file_1 <- system.file("extdata", "rba_parsed_args_1.RData", package = "afnistats")
+  # parsed_args <- parser$parse_args(rba_args_1) %>% .[sort(names(.))]
+  # # expect_equal_to_reference(parsed_args,rba_ref_file_1)
 })
 
+test_that("arg parsing works for executable",{
+  data_path <- system.file("extdata","tiny_data.txt",package = "afnistats")
+  err_code <- withr::with_path(
+    system.file('exec',package="afnistats"),
+    system(stringr::str_c("RBA -prefix result_3 -dataTable ",data_path," -do_not_fit_model")),
+    action = "prefix")
+  expect(!err_code)
+
+})
 #
 # test_that("old MBA with small data", {
 #   outdir <- tempfile()
