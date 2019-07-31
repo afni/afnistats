@@ -24,7 +24,7 @@
 #' \item Avoid using pure numbers to code the labels for categorical variables. The
 #'    column order does not matter. You can specify those column names as you
 #'    prefer, but it saves a little bit scripting if you adopt the default naming
-#'    for subjects (\'Subj\'), regions (\'ROI\') and response variable (\'Y\').
+#'    for subjects ('Subj'), regions ('ROI') and response variable ('Y').
 #' \item Add more columns if explanatory variables are considered in the model. Currently
 #'    only between-subjects variables (e.g., sex, patients vs. controls, age) are
 #'    allowed. Capability of modeling within-subject or repeated-measures variables
@@ -109,30 +109,30 @@
 #'  this option. The list with more than one variable has to be separated with
 #'  comma (,) without any other characters such as spaces and should be
 #'  surrounded within (single or double) quotes. For example, -cVars
-#'  \"sex,site\"
+#'  "sex,site"
 #'@param qVars  Identify quantitative variables (or covariates) with this
 #'  option. The list with more than one variable has to be separated with comma
 #'  (,) without any other characters such as spaces and should be surrounded
-#'  within (single or double) quotes. For example, -qVars \"Age,IQ\"
+#'  within (single or double) quotes. For example, -qVars "Age,IQ"
 #'@param stdz  Identify quantitative variables (or covariates) to be
 #'  standardized. To obtain meaningful and interpretable results and to achieve
 #'  better convergence of Markov chains with reasonable iterations, it is
 #'  recommended that all quantitative variables be standardized except for the
 #'  response variable and indicator variables that code for factors. For
-#'  example, -stdz \"Age,IQ\". If the mean of a quantitative variables varies
+#'  example, -stdz "Age,IQ". If the mean of a quantitative variables varies
 #'  substantially between groups, it may make sense to standardize the variable
 #'  within each group before plugging the values into the data table. Currently
 #'  RBA does not offer the option to perform within-group standardization.
 #'@param EOI  Identify effects of interest in the output by specifying the
-#'  variable names separated with comma (,). For example, -EOI \"sex,age\". By
+#'  variable names separated with comma (,). For example, -EOI "sex,age". By
 #'  default the Intercept is considered to be an effect of interest. Currently
 #'  only variables, not their interactions, can be directly requested for
 #'  output. However, most interaction effects can be obtained by either properly
 #'  coding the variables (see example 3) or post processing.
 #'@param qContr  Identify comparisons of interest between quantitative variables
 #'  in the output separated with comma (,). It only allows for pair-wise
-#'  comparisons between two quantitative variables. For example, \"age vs IQ,
-#'  age vs weight, IQ vs weight\", where V1, V2, and V3 are three quantitative
+#'  comparisons between two quantitative variables. For example, "age vs IQ,
+#'  age vs weight, IQ vs weight", where V1, V2, and V3 are three quantitative
 #'  variables and three comparisons, V1 - V2, V1 - V3 and V2 - V3 will be
 #'  provided in the output. Make sure that such comparisons are meaningful
 #'  (e.g., with the same scale and unit. This can be used to formulate
