@@ -226,13 +226,13 @@ MBA <- function(dataTable, prefix = "result", chains = 4, iterations = 1000, mod
                 Y = "Y", Subj = "Subj", ROI1 = "ROI1", ROI2 = "ROI2", do_not_fit_model = FALSE, verb = 0, dbgArgs = FALSE) {
   dpath <- dataTable
   outFN <- pprefix.AFNI.name(prefix)
-  EOIq <- strsplit(qVars, "\,")[[1]]
+  EOIq <- strsplit(qVars, ",")[[1]]
   if (!("Intercept" %in% EOIq)) EOIq <- c("Intercept", EOIq)
-  EOIq <- intersect(strsplit(EOI, "\,")[[1]], EOIq)
+  EOIq <- intersect(strsplit(EOI, ",")[[1]], EOIq)
   if (is.null(cVars)) {
     EOIc <- NA
   } else {
-    EOIc <- intersect(strsplit(EOI, "\,")[[1]], strsplit(cVars, "\,")[[1]])
+    EOIc <- intersect(strsplit(EOI, ",")[[1]], strsplit(cVars, ",")[[1]])
   }
 
 
