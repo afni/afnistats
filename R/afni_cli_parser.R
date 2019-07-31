@@ -205,8 +205,7 @@ check_func_sig_and_doc_args <- function(parsed_help,df_init,arg_defaults){
   undocumented_args_error <- paste(
     c('For the function ',
       parsed_help$alias,
-      ', the following arguments were in the function signature but were not documented as ',
-      'arguments in the help: ',
+      ', the following arguments were missing from either the function signature or the help documentation: ',
       arg_diff,
       '. All arguments must be documented if you wish to produce a command line interface.'),
   collapse = '')

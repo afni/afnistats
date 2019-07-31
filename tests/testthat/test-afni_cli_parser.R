@@ -70,7 +70,7 @@ test_that("get_df_arg produces a df with all cols being chr vectors except for d
 test_that("get_df_arg raises error if arguments in function signature are not documented in the roxygen block",{
   parsed_help <- parse_help_topic("example_func_for_parsing","afnistats")
   parsed_help$arguments[2] <- NULL
-  missing_doc_error_txt <- '.*but were not documented as arguments in the help: a.*'
+  missing_doc_error_txt <- '.*missing from either the function signature or the help documentation: a.*'
   expect_error(get_df_arg(parsed_help),regexp= missing_doc_error_txt)
 }
 )
