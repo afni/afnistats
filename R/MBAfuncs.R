@@ -23,7 +23,7 @@ get_eioc <- function(cVars, EOI) {
 
 
 post_process <- function(fm,outFN,iterations,chains,EOIq,EOIc,qContr,ptm,ROI1,ROI2){
-  nR <- get_nR(dataTable,c(ROI1,ROI2))
+  nR <- get_nr(dataTable,c(ROI1,ROI2))
   print(format(Sys.time(), "%D %H:%M:%OS3"))
   # Stop the clock
   proc.time() - ptm
@@ -271,7 +271,7 @@ setup_dataTable <- function(data_path,model,MD,r2z,cVars,qVars,stdz,
   }
 
   # number of ROIs
-  nR <- get_nR(dataTable,ROI1,ROI2)
+  nR <- get_nr(dataTable,c(ROI1,ROI2))
 
   if(!MD) if(nlevels(dataTable$Subj)*nR*(nR-1)/2 < nrow(dataTable))
     stop(sprintf("Error: with %d regions and %d subjects, it is expected to have %d rows per subject, leading to toally %d rows in the input data table. However, there are only %d rows. If you have missing data, use option -MD", nR, nlevels(dataTable$Subj), nR*(nR-1)/2, nlevels(dataTable$Subj)*nR*(nR-1)/2, nrow(dataTable)))
@@ -350,7 +350,7 @@ run_mba <- function(dataTable,model,chains,iterations){
 }
 
 log_setup_info <- function(dataTable,outFN,ROI1,ROI2=NULL){
-  nR <- get_nR(dataTable,c(ROI1,ROI2))
+  nR <- get_nr(dataTable,c(ROI1,ROI2))
   cat("===== Summary of variable information =====", file = paste0(outFN, ".txt"), sep = "\n", append=TRUE)
   cat(sprintf("Total number of ROIs: %i", nR),
       file = paste0(outFN, ".txt"), sep = "\n", append=TRUE)

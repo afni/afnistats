@@ -24,7 +24,7 @@ fit_rba <- function(dataTable, model, chains, iterations, ROI = "ROI1") {
 
 post_process_rba <- function(fm, outFN, iterations, chains, EOIq, EOIc, qContr, ptm, ROI,PDP,model,dataTable) {
   print(format(Sys.time(), "%D %H:%M:%OS3"))
-  nR <- get_nR(dataTable,ROI)
+  nR <- get_nr(dataTable,ROI)
   # Stop the clock
   proc.time() - ptm
 
