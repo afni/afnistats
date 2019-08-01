@@ -273,7 +273,7 @@ setup_dataTable <- function(data_path,model,MD,r2z,cVars,qVars,stdz,
   # number of ROIs
   nR <- get_nr(dataTable,c(ROI1,ROI2))
 
-  if(!MD) if(nlevels(dataTable$Subj)*nR*(nR-1)/2 < nrow(dataTable))
+  if(!MD) if(nlevels(dataTable$Subj)*nR*(nR-1)/2 > nrow(dataTable))
     stop(sprintf("Error: with %d regions and %d subjects, it is expected to have %d rows per subject, leading to toally %d rows in the input data table. However, there are only %d rows. If you have missing data, use option -MD", nR, nlevels(dataTable$Subj), nR*(nR-1)/2, nlevels(dataTable$Subj)*nR*(nR-1)/2, nrow(dataTable)))
 
 
