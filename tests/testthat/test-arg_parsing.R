@@ -51,7 +51,10 @@ test_that("user arg parsing for RBA from roxygen-generated parser", {
   # # expect_equal_to_reference(parsed_args,rba_ref_file_1)
 })
 
-test_that("arg parsing works for executable",{
+test_that("arg parsing works for an installed executable",{
+  # NOTE: this will run old code if the package has not been re-installed
+  # and will fail if it is not installed but loaded into the environment
+  #  using devtools
   data_path <- system.file("extdata","tiny_data.txt",package = "afnistats")
   err_code <- withr::with_path(
     system.file('exec',package="afnistats"),
