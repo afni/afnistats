@@ -222,7 +222,7 @@ RBA <- function(dataTable, prefix, chains = 1, iterations = 1000, model = 1, cVa
    )
 
 
-   log_setup_info(dataTable, outFN)
+   log_setup_info(dataTable, outFN,ROI)
 
 
    # deviation coding: -1/0/1 - the intercept is associated with the mean across the levels of the factor
@@ -239,8 +239,8 @@ RBA <- function(dataTable, prefix, chains = 1, iterations = 1000, model = 1, cVa
 
    ##################### MCMC ####################
    if (!do_not_fit_model) {
-      fm <- run_rba(dataTable, model, chains, iterations)
-      post_process_rba(fm, outFN, iterations, chains, EOIq, EOIc, qContr, ptm, get_nR(dataTable))
+      fm <- fit_rba(dataTable, model, chains, iterations)
+      post_process_rba(fm, outFN, iterations, chains, EOIq, EOIc, qContr, ptm,ROI,PDP,model,dataTable)
    } else {
       fm <- NA
    }

@@ -234,7 +234,7 @@ MBA <- function(dataTable, prefix = "result", chains = 4, iterations = 1000, mod
     qContr, Y, Subj, ROI1, ROI2
   )
 
-  log_setup_info(dataTable, outFN)
+  log_setup_info(dataTable, outFN,ROI1,ROI2)
 
   # deviation coding: -1/0/1 - the intercept is associated with the mean across the levels of the factor
   # each coding variable corresponds to the level relative to the mean: alphabetically last level is
@@ -244,8 +244,8 @@ MBA <- function(dataTable, prefix = "result", chains = 4, iterations = 1000, mod
 
 
   # combine the levels between the two region lists: NO! It seems to mess up the modeling wih brm
-  # levels(dataTable$ROI1) <- union(levels(dataTable$ROI1), levels(dataTable$ROI2))
-  # levels(dataTable$ROI2) <- union(levels(dataTable$ROI1), levels(dataTable$ROI2))
+  # levels(dataTable[ROI1][[1]]) <- union(levels(dataTable[ROI1][[1]]), levels(dataTable[ROI2][[1]]))
+  # levels(dataTable[ROI2][[1]]) <- union(levels(dataTable[ROI1][[1]]), levels(dataTable[ROI2][[1]]))
 
   # Start the clock!
   ptm <- proc.time()
@@ -253,7 +253,7 @@ MBA <- function(dataTable, prefix = "result", chains = 4, iterations = 1000, mod
   ##################### MCMC ####################
   if (!do_not_fit_model) {
     fm <- run_mba(dataTable, model, chains, iterations)
-    post_process(fm, outFN, iterations, chains, EOIq, EOIc, qContr, ptm, get_nR(dataTable))
+    post_process(fm, outFN, iterations, chains, EOIq, EOIc, qContr, ptm, ROI1,ROI2)
   } else {
     fm <- NA
   }

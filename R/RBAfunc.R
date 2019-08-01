@@ -22,9 +22,9 @@ fit_rba <- function(dataTable, model, chains, iterations, ROI = "ROI1") {
 }
 
 
-post_process_rba <- function(fm, outFN, iterations, chains, EOIq, EOIc, qContr, ptm, nR) {
+post_process_rba <- function(fm, outFN, iterations, chains, EOIq, EOIc, qContr, ptm, ROI,PDP,model,dataTable) {
   print(format(Sys.time(), "%D %H:%M:%OS3"))
-
+  nR <- get_nR(dataTable,ROI)
   # Stop the clock
   proc.time() - ptm
 
@@ -142,7 +142,7 @@ post_process_rba <- function(fm, outFN, iterations, chains, EOIq, EOIc, qContr, 
   ##################### conventional GLM #####################
   mm <- list()
   GLM <- as.formula(paste("Y ~", model))
-  for (ii in levels(dataTable$ROI)) mm[[ii]] <- lm(GLM, data = dataTable[dataTable$ROI == ii, ])
+  for (ii in levels(dataTable[ROI][[1]])) mm[[ii]] <- lm(GLM, data = dataTable[dataTable[ROI][[1]] == ii, ])
   nn <- lapply(mm, summary)
   ll <- lapply(nn, `[`, "coefficients")
 

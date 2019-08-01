@@ -22,7 +22,8 @@ get_eioc <- function(cVars, EOI) {
 }
 
 
-post_process <- function(fm,outFN,iterations,chains,EOIq,EOIc,qContr,ptm,nR){
+post_process <- function(fm,outFN,iterations,chains,EOIq,EOIc,qContr,ptm,ROI1,ROI2){
+  nR <- get_nR(dataTable,c(ROI1,ROI2))
   print(format(Sys.time(), "%D %H:%M:%OS3"))
   # Stop the clock
   proc.time() - ptm
@@ -55,13 +56,13 @@ post_process <- function(fm,outFN,iterations,chains,EOIq,EOIc,qContr,ptm,nR){
   cat(rs_text, file = paste0(outFN, ".txt"), sep = "\n", append = TRUE)
   cat("\n", file = paste0(outFN, ".txt"), sep = "\n", append = TRUE)
 
-  # union(levels(dataTable$ROI1), levels(dataTable$ROI2))
+  # union(levels(dataTable[ROI1][[1]]), levels(dataTable[ROI2][[1]]))
 
-  # <- list(outFN='Tara', EOI=c('Intercept', 'e4', 'site'), EOIc=c('e4', 'site'), EOIq='Intercept')
-  # ['EOIq']] <- 'Intercept'
+  # <- list(outFN="Tara", EOI=c("Intercept", "e4", "site"), EOIc=c("e4", "site"), EOIq="Intercept")
+  # ["EOIq"]] <- "Intercept"
 
   ns <- iterations * chains / 2
-  # nR <- nlevels(dataTable$ROI1)
+  # nR <- nlevels(dataTable[ROI1][[1]])
   aa <- brms::fixef(fm, summary = FALSE) # Population-Level Estimates
   bb <- brms::ranef(fm, summary = FALSE) # Extract Group-Level (or random-effect) Estimates
 
@@ -235,27 +236,27 @@ setup_dataTable <- function(data_path,model,MD,r2z,cVars,qVars,stdz,
 
   dataTable <- utils::read.table(data_path,header=T)
   # standardize the names for Y, ROI and subject
-  names(dataTable)[names(dataTable)==Subj] <- 'Subj'
-  names(dataTable)[names(dataTable)==Y] <- 'Y'
-  names(dataTable)[names(dataTable)==ROI1] <- 'ROI1'
+  names(dataTable)[names(dataTable)==Subj] <- "Subj"
+  names(dataTable)[names(dataTable)==Y] <- "Y"
+  names(dataTable)[names(dataTable)==ROI1] <- "ROI1"
 
   # make sure ROI1, ROI2 and Subj are treated as factors
-  if(!is.factor(dataTable$ROI1)) dataTable$ROI1 <- as.factor(dataTable$ROI1)
+  if(!is.factor(dataTable[ROI1][[1]])) dataTable[ROI1][[1]] <- as.factor(dataTable[ROI1][[1]])
   if(!is.factor(dataTable$Subj)) dataTable$Subj <- as.factor(dataTable$Subj)
 
   if (!is.null(ROI2)){
-    if(!is.factor(dataTable$ROI2)) dataTable$ROI2 <- as.factor(dataTable$ROI2)
-    names(dataTable)[names(dataTable)==ROI2] <- 'ROI2'
+    if(!is.factor(dataTable[ROI2][[1]])) dataTable[ROI2][[1]] <- as.factor(dataTable[ROI2][[1]])
+    names(dataTable)[names(dataTable)==ROI2] <- "ROI2"
   }
   # verify variable types
-  if(model==1) terms <- 1 else terms <- strsplit(model, '\\+')[[1]]
+  if(model==1) terms <- 1 else terms <- strsplit(model, "\\+")[[1]]
   if(length(terms) > 1) {
-    #terms <- terms[terms!='1']
+    #terms <- terms[terms!="1"]
     for(ii in 1:length(terms)) {
       if(!is.null(cVars[1])) if(terms[ii] %in% strsplit(cVars, ",")[[1]] & !is.factor(dataTable[[terms[ii]]])) # declared factor with quantitative levels
         dataTable[[terms[ii]]] <- as.factor(dataTable[[terms[ii]]])
       if(terms[ii] %in% strsplit(qVars, ",")[[1]] & is.factor(dataTable[[terms[ii]]])) # declared numerical variable contains characters
-        stop(sprintf('Column %s in the data table is declared as numerical, but contains characters!', terms[ii]))
+        stop(sprintf("Column %s in the data table is declared as numerical, but contains characters!", terms[ii]))
     }
   }
 
@@ -266,47 +267,74 @@ setup_dataTable <- function(data_path,model,MD,r2z,cVars,qVars,stdz,
     sl <- strsplit(stdz, ",")[[1]]
     for(ii in 1:length(sl)) if(is.numeric(dataTable[[sl[ii]]]))
       dataTable[[sl[ii]]] <- scale(dataTable[[sl[ii]]], center = TRUE, scale = TRUE) else
-        stop(sprintf('The column %s is categorical, not numerical! Why are you asking me to standardize it?', sl[ii]))
+        stop(sprintf("The column %s is categorical, not numerical! Why are you asking me to standardize it?", sl[ii]))
   }
 
   # number of ROIs
-  nR <- get_nR(dataTable)
+  nR <- get_nR(dataTable,ROI1,ROI2)
 
   if(!MD) if(nlevels(dataTable$Subj)*nR*(nR-1)/2 < nrow(dataTable))
-    stop(sprintf('Error: with %d regions and %d subjects, it is expected to have %d rows per subject, leading to toally %d rows in the input data table. However, there are only %d rows. If you have missing data, use option -MD', nR, nlevels(dataTable$Subj), nR*(nR-1)/2, nlevels(dataTable$Subj)*nR*(nR-1)/2, nrow(dataTable)))
+    stop(sprintf("Error: with %d regions and %d subjects, it is expected to have %d rows per subject, leading to toally %d rows in the input data table. However, there are only %d rows. If you have missing data, use option -MD", nR, nlevels(dataTable$Subj), nR*(nR-1)/2, nlevels(dataTable$Subj)*nR*(nR-1)/2, nrow(dataTable)))
 
 
 
   if(any(!is.null(qContr))) {
     qContrL <- unlist(strsplit(qContr, ","))
-    # verify 'vs' in alternating location
-    ll <- which(qContrL %in% 'vs')
+    # verify "vs" in alternating location
+    ll <- which(qContrL %in% "vs")
     if(!all(ll == seq(2,300,3)[1:length(ll)]))
-      stop(sprintf('Quantitative contrast specification -qContr is incorrect!'))
-    qContrL <- qContrL[!qContrL %in% 'vs']
+      stop(sprintf("Quantitative contrast specification -qContr is incorrect!"))
+    qContrL <- qContrL[!qContrL %in% "vs"]
     # verify that variable names are correct
-    if(!all(qContrL %in% c(QV, 'Intercept')))
-      stop(sprintf('At least one of the variable labels in quantitative contrast specification -qContr is incorrect!'))
+    if(!all(qContrL %in% c(QV, "Intercept")))
+      stop(sprintf("At least one of the variable labels in quantitative contrast specification -qContr is incorrect!"))
   }
 
   dataTable
 }
 
-get_nR <- function(dataTable){
-  length(union(levels(dataTable$ROI1), levels(dataTable$ROI2)))
+#' Get number of rows based on the count of variable levels
+#'
+#' Given a dataframe with columns that represent categorical
+#' variables this function will return the total number of unique
+#' elements that are found across all columns.
+#'
+#' @param df A dataframe in which some categorical variables are stored
+#' @param col_names The column labels that refer to categorical variables
+#' used to fit the model
+#'
+#' @return count
+#' @export
+#'
+#' @examples
+#' col_names <- c("cat_var_1","cat_var_2")
+#'
+#' df <- tibble::tribble(
+#' ~col_1, ~cat_var_1,       ~cat_var_2,
+#' "text", "unique_val_1",   "unique_val_1",
+#' "text", "unique_val_2",   "unique_val_1",
+#' "text", "unique_val_1",   "unique_val_3",
+#' "text", "unique_val_1",   "unique_val_4",
+#' )
+#'
+#' get_nr(df,col_names)
+get_nr <- function(df,roi_names){
+  purrr::map(roi_names, ~ as.character(df[.x][[1]])) %>%
+    purrr::flatten_chr() %>%
+    dplyr::n_distinct()
 }
 
 run_mba <- function(dataTable,model,chains,iterations){
   set.seed(1234)
   if(model==1) {
 
-    modelForm <- stats::as.formula(paste('Y ~ 1 + (1|Subj) + (1|ROI1:ROI2) +
+    modelForm <- stats::as.formula(paste("Y ~ 1 + (1|Subj) + (1|ROI1:ROI2) +
         (1|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE)) +
-        (1|mm(ROI1:Subj, ROI2:Subj, weights = cbind(w, w), scale=FALSE))'))
+        (1|mm(ROI1:Subj, ROI2:Subj, weights = cbind(w, w), scale=FALSE))"))
   }else{
 
-    modelForm <- stats::as.formula(paste('Y~', model, '+(1|Subj)+(', model, '|ROI1:ROI2)+(',
-                                         model, '|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE))'))
+    modelForm <- stats::as.formula(paste("Y~", model, "+(1|Subj)+(", model, "|ROI1:ROI2)+(",
+                                         model, "|mm(ROI1, ROI2, weights = cbind(w, w), scale=FALSE))"))
   }
   if(model==1){
 
@@ -321,543 +349,23 @@ run_mba <- function(dataTable,model,chains,iterations){
   }
 }
 
-log_setup_info <- function(dataTable,outFN){
-  nR <- get_nR(dataTable)
-  cat('===== Summary of variable information =====', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat(sprintf('Total number of ROIs: %i', nR),
-      file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat(sprintf('Response variable Y - mean: %f; SD: %f', mean(dataTable$Y), stats::sd(dataTable$Y)),
-      file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+log_setup_info <- function(dataTable,outFN,ROI1,ROI2=NULL){
+  nR <- get_nR(dataTable,c(ROI1,ROI2))
+  cat("===== Summary of variable information =====", file = paste0(outFN, ".txt"), sep = "\n", append=TRUE)
+  cat(sprintf("Total number of ROIs: %i", nR),
+      file = paste0(outFN, ".txt"), sep = "\n", append=TRUE)
+  cat(sprintf("Response variable Y - mean: %f; SD: %f", mean(dataTable$Y), stats::sd(dataTable$Y)),
+      file = paste0(outFN, ".txt"), sep = "\n", append=TRUE)
   outDF(summary(dataTable$Y), outFN)
-  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  cat('Data structure:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat("\n", file = paste0(outFN, ".txt"), sep = "\n", append=TRUE)
+  cat("Data structure:", file = paste0(outFN, ".txt"), sep = "\n", append=TRUE)
   outDF(utils::str(dataTable), outFN)
-  cat('Subjects:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
+  cat("Subjects:", file = paste0(outFN, ".txt"), sep = "\n", append=TRUE)
   outDF(summary(dataTable$Subj), outFN)
-  cat('ROIs:', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-  outDF(summary(dataTable$ROI1), outFN)
-  outDF(summary(dataTable$ROI2), outFN)
-  cat('\n', file = paste0(outFN, '.txt'), sep = '\n', append=TRUE)
-}
-
-
-
-#The help function for MBA batch (AFNI-style script mode)
-help.MBA.opts <- function (params, alpha = TRUE, itspace='   ', adieu=FALSE) {
-
-  intro <-
-    '
-                      Welcome to MBA ~1~
-    Matrix-Based Analysis Program through Bayesian Multilevel Modeling
-#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-Version 0.0.9, May 22, 2019
-Author: Gang Chen (gangchen@mail.nih.gov)
-Website - https://afni.nimh.nih.gov/gangchen_homepage
-SSCC/NIMH, National Institutes of Health, Bethesda MD 20892
-#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-Usage: ~1~
-------
- MBA performs matrix-based analysis (MBA) as theoretically elaborated in the
- manuscript: https://www.biorxiv.org/content/10.1101/459545v1
- MBA is conducted with a shell script (as shown in the examples below). The
- input data should be formulated in a pure-text table that codes the regions
- and variables. The response variable is usually correlation values (with or
- without Fisher-transformation) or white-matter properties (e.g., fractional
- anisotropy, mean diffusivity, radial diffusivity, axial diffusivity, etc.),
- but it can also be any values from a symmetric matrix (e.g., coherence,
- mutual information, entropy). In other words, the effects are assumed to be
- non-directional or non-causal. Diagonals can be included in the input if
- sensible.
-
- Thanks to Zhihao Li for motivating me to start the MBA work, and to
- Paul-Christian Burkner and the Stan/R communities for the strong support.
-
- Citation: ~1~
- If you want to cite the approach for MBA, consider the following:~2~
-
- Chen, G., Burkner, P.-C., Taylor, P.A., Li, Z., Yin, L., Glen, D.R., Kinnison, J.,
- Cox, R.W., Pessoa, L., 2019. An Integrative Approach to Matrix-Based Analyses in
- Neuroimaging. https://doi.org/10.1101/459545
-
- ===============================
- Read the following carefully!!!
- ===============================
- A data table in pure text format is needed as input for an MBA script. The
- data table should contain at least 4 columns that specify the information
- about subjects, region pairs and the response variable values with the
- following fixed header. The header lables are case-sensitive, and their order
- does not matter.
-
- Subj   ROI1   ROI2   Y      Age
- S1     Amyg   SMA   0.2643  11
- S2     BNST   MPFC  0.3762  16
- ...
-
- 0) You are performing Bayesian analysis!!! So, you will directly obtain
-    the probability of an effect being positive or negative with your data,
-    instead of witch hunt - hunting the straw man of p-value (weirdness of your
-    data when pretending that absolutely nothing exists).
-
- 1) Avoid using pure numbers to code the labels for categorical variables. The
-    column order does not matter. . You can specify those column names as you
-    prefer, but it saves a little bit scripting if you adopt the default naming
-    for subjects (\'Subj\'), regions (\'ROI1\' and \'ROI2\') and response variable (\'Y\').
-    The column labels ROI1 and ROI2 are meant to indicate the two regions
-    associated with each response value, and they do not mean any sequence or
-    directionality.
-
- 2) Only provide half of the off-diagonals in the table (no duplicates allowed).
-    Missing data are fine (e.g., white-matter property deemed nonexistent).
-
- 3) Simple analysis can be done in a few minutes, but computational cost can be
-    very high (e.g., weeks or even months) when the number of regions or subjects
-    is large or when a few explanatory variables are involved. Be patient: there
-    is hope in the near future that further parallelization can be implemented.
-
- 4) Add more columns if explanatory variables are considered in the model. Currently
-    only between-subjects variables (e.g., sex, patients vs. controls, age) are
-    allowed. Each label in a between-subjects factor (categorical variable)
-    should be coded with at least 1 character (labeling with pure numbers is fine
-    but not recommended). If preferred, you can quantitatively code the levels of a
-    factor yourself by creating k-1 columns for a factor with k levels. However, be
-    careful with your coding strategy because it would impact how to interpret the
-    results. Here is a good reference about factor coding strategies:
-    https://stats.idre.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/
-
- 5) It is strongly suggested that a quantitative explanatory variable be
-    standardized with option -stdz; that is, remove the mean and scale by
-    the standard deviation. This will improve the chance of convergence
-    with each Markov chain. If a between-subjects factor (e.g., sex) is
-    involved, it may be better to standardize a quantitative variable
-    within each group in terms of interpretability if the mean value differs
-    substantially. However, do not standardize a between-subjects factor if
-    you quantitatively code it. And do not standardize the response variable
-    if the intercept is of interest!
-
- 6) With within-subject variables, try to formulate the data as a contrast
-    between two factor levels or as a linear combination of multiple levels.
-
- 7) The results from MBA are effect estimates for each region pair and at each
-    region. They can be slightly different across different runs or different
-    computers and R package versions due to the nature of randomness involved
-    in Monte Carlo simulations.
-
- 8) The range in matrix plot may vary across different effects within an analysis.
-    It is possible to force the same range for all plots through fine-tuning
-    within R using the output of .RData. The criteria of color coding for the
-    strength of evidence in matrix plots in the output is as follows:
-     Green  - two-tailed 95% compatible/uncertainty interval (or probability of effect
-              being positive >= 0.975 or <= 0.025)
-     Yellow - one-tailed 95% compatible/uncertainty interval (or probability of effect
-              being positive >= 0.95 or <= 0.05)
-     Gray   - one-tailed 90% compatible/uncertainty interval (or probability of effect
-              being positive >= 0.90 or <= 0.10)
-     white  - anything else
-
- =========================
-
- Installation requirements: ~1~
- In addition to R installation, the R package "brms" is required for MBA. Make
- sure you have the most recent version of R. To install "brms", run the following
- command at the terminal:
-
- rPkgsInstall -pkgs "brms" -site http://cran.us.r-project.org"
-
- Alternatively you may install them in R:
-
- utils::install.packages("brms")
-
- Running: ~1~
- Once the MBA command script is constructed, it can be run by copying and
- pasting to the terminal. Alternatively (and probably better) you save the
- script as a text file, for example, called myMBA.txt, and execute it with the
- following  (assuming on tcsh shell),
-
- nohup tcsh -x myMBA.txt > diary.txt &
- nohup tcsh -x myMBA.txt |& tee diary.txt &
-
- The advantage of the commands above is that the progression is saved into
- the text file diary.txt and, if anything goes awry, can be examined later.
- The \'nohup\' command allows the analysis running in the background even if
- the terminal is killed.'
-
-  ex1 <-
-    "\n--------------------------------
-Examples: ~1~
-
-Example 1 --- Simplest scenario. Values from region pairs are the input from
-          each subject. No explanatory variables are considered. Research
-	  interest is about the population effect at each region pair plus
-	  the relative strength of each region.
-
-   MBA -prefix output -r2z -dataTable myData.txt  \\
-
-   The above script is equivalent to
-
-   MBA -prefix myWonderfulResult -chains 4 -iterations 1000 -model 1 -EOI 'Intercept' \\
-   -r2z -dataTable myData.txt  \\
-
-   The 2nd version is recommended because of its explicit specifications.
-
-   The input file 'myData.txt' is a data table in pure text format as below:
-
-     Subj  ROI1   ROI2      Y
-     S01   lFFA lAmygdala  0.162
-     S02   lFFA lAmygdala -0.598
-     S03   lFFA lAmygdala  0.249
-     S04   lFFA lAmygdala  0.568
-     ...
- \n"
-
-  ex2 <-
-    "--------------------------------
-Example 2 --- 2 between-subjects factors (sex and group): ~2~
-
-   MBA -prefix output -Subj subject -ROI1 region1 -ROI2 region2 -Y zscore\\
-   -chains 4 -iterations 1000 -model '1+sex+group' \\
-   -cVars 'sex,group' -r2z -EOI 'Intercept,sex,group' \\
-   -dataTable myData.txt
-
-   The input file 'myData.txt' is formatted as below:
-
-   subject region1 region2  zscore  sex group
-   S1      DMNLAG  DMNLHC 0.274   F  patient
-   S1      DMNLAG  DMNPCC 0.443   F  patient
-   S2      DMNLAG  DMNRAG 0.455   M  contorl
-   S2      DMNLAG  DMNRHC 0.265   M  control
-   ...
-
-   Notice that the interaction between 'sex' and 'group' is not modeled in this case.
-\n"
-
-  ex3 <-
-    "---------------------------------
-Example 3 --- one between-subjects factor (sex), one within-subject factor (two
-   conditions), and one quantitative variable: ~2~
-
-   MBA -prefix result -chains 4 -iterations 1000 -model '1+sex+age+SA' \\
-   -qVars 'sex,age,SA' -r2z -EOI 'Intercept,sex,age,SA' \\
-   -dataTable myData.txt
-
-   The input file 'myData.txt' is formatted as below:
-
-   Subj ROI1  ROI2    Y   sex  age    SA
-   S1 DMNLAG DMNLHC 0.274  1  1.73  1.73
-   S1 DMNLAG DMNPCC 0.443  1  1.73  1.73
-   S2 DMNLAG DMNRAG 0.455 -1 -0.52 -0.52
-   S2 DMNLAG DMNRHC 0.265 -1 -0.52 -0.52
-   ...
-
-   Notice
-
-   1) the 'Y' column is the contrast between the two conditions.
-   2) since we want to model the interaction between 'sex' and 'age', 'sex' is
-      coded through deviation coding.
-   3) 'age' has already been standardized within each sex due to large age
-      difference between the two sexes.
-   4) the 'SA' column codes for the interaction between 'sex' and 'age', which
-      is the product of the two respective columns.
-
-   Options: ~1~
-   \n"
-
-  parnames <- names(params)
-  ss <- vector('character')
-  if(alpha) {
-    parnames <- sort(parnames)
-    ss <- paste('Options in alphabetical order:\n',
-                '------------------------------\n', sep='')
-  } else ss <- paste('Options:\n', '--------\n', sep='')
-  for(ii in 1:length(parnames)) {
-    op <- params[parnames[ii]][[1]]
-    if(!is.null(op$help)) ss <- c(ss , paste(itspace, op$help, sep='')) else
-      ss <- c(ss, paste(itspace, parnames[ii], '(no help available)\n', sep=''))
-  }
-  ss <- paste(ss, sep='\n')
-  cat(intro, ex1, ex2, ex3, ss, sep='\n')
-
-  if (adieu) exit.AFNI();
-}
-
-# options list
-read.MBA.opts.batch <- function (args=NULL, verb = 0) {
-  params <- get_orig_params()
-  ops <- parse.AFNI.args(args, params, other_ok=FALSE)
-  if (verb) show.AFNI.args(ops, verb=0, hstr='')
-  if (is.null(ops))
-    errex.AFNI('Error parsing arguments. See MBA -help for details.')
-
-  list_of_params <- get_list_of_params(params,ops)
-  list_of_params
-}
-
-
-get_list_of_params <- function(params,ops){
-
-  #Parse dems options
-  #initialize with defaults
-  lop <- AFNI.new.options.list(history = '', parsed_args = ops)
-  lop$chains <- 1
-  lop$iterations <- 1000
-  lop$model  <- 1
-  lop$cVars  <- NULL
-  lop$qVars  <- 'Intercept'
-  lop$stdz   <- NA
-  lop$EOI    <- 'Intercept'
-  lop$qContr  <- NA
-  lop$Y      <- 'Y'
-  lop$Subj   <- 'Subj'
-  lop$ROI1   <- 'ROI1'
-  lop$ROI2   <- 'ROI2'
-
-  lop$dbgArgs <- FALSE # for debugging purpose
-  lop$MD      <- FALSE # for missing data
-  lop$r2z     <- FALSE # Fisher transformation
-  lop$verb    <- 0
-
-  allowed_options <- ops$allowed_options
-  ops['other'] <- NULL
-  ops['allowed_options'] <- NULL
-  #Get user's input
-  for (i in 1:length(ops)) {
-    op_flag <- names(ops)[i]
-    if (!op_flag %in% allowed_options){
-      stop("Do not know argument: ",  op_flag)
-    }
-    opname <- tail(strsplit(op_flag,'^-')[[1]],1);
-    if (opname == "help"){help.MBA.opts(params, adieu=TRUE)}
-    switch(opname,
-           prefix = lop$prefix  <- ops[[i]],
-           chains   = lop$chains <- ops[[i]],
-           iterations = lop$iterations <- ops[[i]],
-           verb   = lop$verb  <- ops[[i]],
-           model  = lop$model <- ops[[i]],
-           cVars  = lop$cVars <- ops[[i]],
-           qVars  = lop$qVars <- ops[[i]],
-           stdz   = lop$stdz  <- ops[[i]],
-           EOI    = lop$EOI   <- ops[[i]],
-           qContr = lop$qContr <- ops[[i]],
-           Y      = lop$Y      <- ops[[i]],
-           Subj   = lop$Subj   <- ops[[i]],
-           ROI1   = lop$ROI1   <- ops[[i]],
-           ROI2   = lop$ROI2   <- ops[[i]],
-           dbgArgs = lop$dbgArgs <- TRUE,
-           MD      = lop$MD      <- TRUE,
-           r2z     = lop$r2z     <- TRUE,
-           dataTable  = lop$dataTable <- ops[[i]],
-    )
-  }
-  lop$help <- help
-  return(lop)
-}
-
-
-get_orig_params <- function(){
-  params <- list (
-    '-prefix' = apl(n = 1, d = NA,  h = paste(
-      "-prefix PREFIX: Prefix is used to specify output file names. The main output is",
-      "        a text with prefix appended with .txt and stores inference information ",
-      "        for effects of interest in a tabulated format depending on selected ",
-      "        options. The prefix will also be used for other output files such as ",
-      "        visualization plots such as matrix plot, and saved R data in binary",
-      "        mode. The .RData can be used for post hoc processing such as customized",
-      "        processing and plotting. Remove the .RData file to save disk space once",
-      "        you deem such a file is no longer useful.\n", sep = '\n'
-    ) ),
-
-    '-chains' = apl(n = 1, d = 1, h = paste(
-      "-chains N: Specify the number of Markov chains. Make sure there are enough",
-      "         processors available on the computer. Most of the time 4 cores are good",
-      "         enough. However, a larger number of chains (e.g., 8, 12) may help achieve",
-      "         higher accuracy for posterior distribution. Choose 1 for a single-processor",
-      "         computer, which is only practical only for simple models.\n", sep = '\n'
-    ) ),
-
-    '-iterations' = apl(n = 1, d = 1, h = paste(
-      "-iterations N: Specify the number of iterations per Markov chain. Choose 1000 (default)",
-      "         for simple models (e.g., one or no explanatory variables). If convergence",
-      "         problem occurs as indicated by Rhat being great than 1.1, increase the number of",
-      "         iterations (e.g., 2000) for complex models, which will lengthen the runtime.",
-      "         Unfortunately there is no way to predict the optimum iterations ahead of time.\n", sep = '\n'
-    ) ),
-
-    '-verb' = apl(n = 1, d = 1, h = paste(
-      "-verb VERB: Speicify verbose level.\n", sep = '\n'
-    ) ),
-
-    '-model' = apl(n = 1, d = 1, h = paste(
-      "-model FORMULA: This option specifies the effects associated with explanatory",
-      "         variables. By default (without user input) the model is specified as",
-      "         1 (Intercept). Currently only between-subjects factors (e.g., sex, ",
-      "         patients vs. controls) and quantitative variables (e.g., age) are",
-      "         allowed. When no between-subject factors are present, simply put 1",
-      "         (default) for FORMULA. The expression FORMULA with more than one",
-      "         variable has to be surrounded within (single or double) quotes (e.g.,",
-      "         '1+sex', '1+sex+age'. Variable names in the formula should be consistent",
-      "         with the ones used in the header of data table. A+B represents the",
-      "         additive effects of A and B, A:B is the interaction between A",
-      "         and B, and A*B = A+B+A:B. Subject as a variable should not occur in",
-      "         the model specification here.\n", sep = '\n'
-    ) ),
-
-    '-dbgArgs' = apl(n=0, h = paste(
-      "-dbgArgs: This option will enable R to save the parameters in a file called",
-      "         .MBA.dbg.AFNI.args in the current directory so that debugging can be",
-      "         performed.\n", sep='\n')),
-
-    '-MD' = apl(n=0, h = paste(
-      "-MD: This option indicates that there are missing data in the input. With n",
-      "         regions, at least n(n-1)/2 values are assumed from each subject in the",
-      "         input with no missing data (default). When missing data are present,",
-      "         invoke this option so that the program will handle it properly.\n", sep='\n')),
-
-    '-r2z' = apl(n=0, h = paste(
-      "-r2z: This option performs Fisher transformation on the response variable",
-      "         (column Y) if it is correlation coefficient. Do not invoke the option",
-      "         if the transformation has already been applied or the variable is",
-      "         not correlation coefficient.\n", sep='\n')),
-
-    '-cVars' = apl(n=c(1,100), d=NA, h = paste(
-      "-cVars variable_list: Identify categorical (qualitive) variables (or",
-      "         factors) with this option. The list with more than one variable",
-      "         has to be separated with comma (,) without any other characters such",
-      "         as spaces and should be surrounded within (single or double) quotes.",
-      "         For example, -cVars \"sex,site\"\n",
-      sep = '\n'
-    ) ),
-
-    '-qVars' = apl(n=c(1,100), d=NA, h = paste(
-      "-qVars variable_list: Identify quantitative variables (or covariates) with",
-      "         this option. The list with more than one variable has to be",
-      "         separated with comma (,) without any other characters such as",
-      "         spaces and should be surrounded within (single or double) quotes.",
-      "         For example, -qVars \"Age,IQ\"\n",
-      sep = '\n'
-    ) ),
-
-    '-stdz' = apl(n=c(1,100), d=NA, h = paste(
-      "-stdz variable_list: Identify quantitative variables (or covariates) to be",
-      "         standardized. To obtain meaningful and interpretable results and to",
-      "         achieve better convergence of Markov chains with reasonable iterations,",
-      "         it is recommended that all quantitative variables be standardized",
-      "         except for the response variable and indicator variables that code for",
-      "         factors. For example, -stdz \"Age,IQ\". If the mean of a quantitative",
-      "         variables varies substantially between groups, it may make sense to",
-      "         standardize the variable within each group before plugging the values",
-      "         into the data table. Currently MBA does not offer the option to perform",
-      "         within-group standardization.\n",
-      sep = '\n'
-    ) ),
-
-    '-EOI' = apl(n=c(1,100), d=NA, h = paste(
-      "-EOI variable_list: Identify effects of interest in the output by specifying the",
-      "         variable names separated with comma (,). For example, -EOI \"sex,age\".",
-      "         By default the Intercept is considered to be an effect of interest.",
-      "         Currently only variables, not their interactions, can be directly",
-      "         requested for output. However, most interaction effects can be obtained by",
-      "         either properly coding the variables (see example 3) or post processing.\n",
-      sep = '\n'
-    ) ),
-
-    '-qContr' = apl(n=c(1,100), d=NA, h = paste(
-      "-qContr contrast_list: Identify comparisons of interest between quantitative",
-      "         variables in the output separated with comma (,). It only allows for",
-      "         pair-wise comparisons between two quantitative variables. For example,",
-      "         -qContr \"age vs IQ, age vs weight, IQ vs weight\", where V1, V2, and V3 are three",
-      "         quantitative variables and three comparisons, V1 - V2, V1 - V3 and V2 - V3",
-      "         will be provided in the output. Make sure that such comparisons are",
-      "         meaningful (e.g., with the same scale and unit. This can be used to",
-      "         formulate comparisons among factor levels if the user quantitatively",
-      "         codes the factor levels.\n",
-      sep = '\n'
-    ) ),
-
-    '-Y' = apl(n = 1, d = NA,  h = paste(
-      "-Y var_name: var_name is used to specify the column name that is designated as",
-      "        as the response/outcome variable. The default (when this option is not",
-      "        invoked) is 'Y'.\n", sep = '\n'
-    ) ),
-
-    '-Subj' = apl(n = 1, d = NA,  h = paste(
-      "-Subj var_name: var_name is used to specify the column name that is designated as",
-      "        as the measuring unit variable (usually subject). The default (when this",
-      "        option is not invoked) is 'Subj'.\n", sep = '\n'
-    ) ),
-
-    '-ROI1' = apl(n = 1, d = NA,  h = paste(
-      "-ROI1 var_name: var_name is used to specify the column name that is designated as",
-      "        as the region variable for the first set of each region pair. The default",
-      "        (when this option is not invoked) is 'ROI1'.\n", sep = '\n'
-    ) ),
-
-    '-ROI2' = apl(n = 1, d = NA,  h = paste(
-      "-ROI2 var_name: var_name is used to specify the column name that is designated as",
-      "        as the region variable for the second set of each region pair. The default",
-      "        (when this option is not invoked) is 'ROI2'.\n", sep = '\n'
-    ) ),
-
-    '-dataTable' = apl(n=c(1, 1000000), d=NA, h = paste(
-      "-dataTable TABLE: List the data structure in a table of long format (cf. wide",
-      "         format) in R with a header as the first line. \n",
-      "         NOTE:\n",
-      "         1) There should have at least four columns in the table. These minimum",
-      "         four columns can be in any order but with fixed and reserved with labels:",
-      "         'Subj', 'ROI1', 'ROI2', and 'Y'. The two columns 'ROI1' and 'ROI2' are",
-      "         meant to code the two regions that are associated with each value under the",
-      "         column Y, and they do not connotate any indication of directionality other",
-      "         than you may want to keep track of a consistent order, for example, in the",
-      "         correlation matrix. More columns can be added in the table for explanatory",
-      "         variables (e.g., groups, age, site) if applicable. Only subject-level",
-      "         (or between-subjects) explanatory variables are allowed at the moment. The ",
-      "         columns of 'Subj', 'ROI1' and 'ROI2' code each subject and the two regions ",
-      "         associated with each region pair, and these labels that can be any identifiable",
-      "         characters including numbers. The column 'Y' can be correlation value, ",
-      "         Fisher-transformed correlation value, or white-matter property between ",
-      "         grey-matter regions (e.g., mean diffusivity, fractional anisotropy, radial",
-      "         diffusivity and axial diffusivity).",
-      "         2) Each row is associated with one and only one 'Y' value, which is the",
-      "         response variable in the table of long format (cf. wide format) as",
-      "         defined in R. In the case of correlation matrix or white-matter property",
-      "         matrix, provide only half of the off-diagonals. With n regions, there",
-      "         should have at least n(n-1)/2 rows per subject, assuming no missing data. ",
-      "         3) It is fine to have variables (or columns) in the table that are",
-      "         not used in the current analysis.",
-      "         4) The context of the table can be saved as a separate file, e.g., called",
-      "         table.txt. In the script specify the data with '-dataTable table.txt'.",
-      "         This option is useful when: (a) there are many rows in the table so that",
-      "         the program complains with an 'Arg list too long' error; (b) you want to",
-      "         try different models with the same dataset.\n",
-      sep = '\n'
-    ) ),
-
-    '-help' = apl(n=0, h = '-help: this help message\n'),
-    '-show_allowed_options' = apl(n=0, h=
-                                    "-show_allowed_options: list of allowed options\n" )
-  )
-  params
-}
-
-#Change options list to MBA variable list
-process.MBA.opts <- function (lop, verb = 0) {
-  if(is.null(lop$outFN)) return(NULL)
-  # if(is.null(lop$outFN)) errex.AFNI(c("Output filename not specified! Add filename with -prefix.\n"))
-  an <- parse.AFNI.name(lop$outFN)
-  if(!lop$overwrite && (
-    file.exists(paste0(lop$outFN,".txt")) ||
-    file.exists(paste0(lop$outFN,".RData")) ||
-    file.exists(paste0(lop$outFN,".pdf"))) ) {
-    errex.AFNI(c("File ", lop$outFN, " exists! Try a different name.\n"))
-    return(NULL)
-  }
-
-  if(!is.null(lop$cVars[1])) lop$CV <- strsplit(lop$cVars, ",")[[1]]
-  if(!is.na(lop$qVars[1])) lop$QV <- strsplit(lop$qVars, ",")[[1]]
-
-
-  if(lop$chains < 1) lop$chains <- 1
-
-  return(lop)
+  cat("ROIs:", file = paste0(outFN, ".txt"), sep = "\n", append=TRUE)
+  outDF(summary(dataTable[ROI1][[1]]), outFN)
+  if (!is.null(ROI2)) outDF(summary(dataTable[ROI2][[1]]), outFN)
+  cat("\n", file = paste0(outFN, ".txt"), sep = "\n", append=TRUE)
 }
 
 # write data.frame to a file
