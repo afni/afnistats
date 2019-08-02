@@ -31,5 +31,6 @@ Imports:
     dplyr,
     tibble,
     tidyr,
-    mockery
+    mockery,
+    glue
 VignetteBuilder: knitr

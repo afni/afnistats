@@ -55,10 +55,16 @@ test_that("arg parsing works for an installed executable",{
   # NOTE: this will run old code if the package has not been re-installed
   # and will fail if it is not installed but loaded into the environment
   #  using devtools
+
+
+  skip_if_not(
+    as.logical(length(find.package("afnistats",.libPaths(),quiet=TRUE))),
+    message = "package installed")
+
   data_path <- system.file("extdata","tiny_data.txt",package = "afnistats")
   err_code <- withr::with_path(
     system.file('exec',package="afnistats"),
-    system(stringr::str_c("RBA -prefix result_3 -dataTable ",data_path," -do_not_fit_model")),
+    system(stringr::str_c("RBA -prefix result_3 -dataTable ",data_path,"  -ROI ROI1")),
     action = "prefix")
   expect(err_code == 0,failure_message = "RBA executable is not working")
 
