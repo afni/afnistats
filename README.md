@@ -21,4 +21,31 @@ This is far from a complete work. Things to consider for improvement:
 + extend the list of refactored programs beyond MBA and RBA. This would take time. As common code across various tools is extracted into generic functions this task will become easier and easier to do. For now it is somewhat depending (taking hours-days for each refactored script)
 + consider [how R specifies dependencies](http://r-pkgs.had.co.nz/description.html#dependencies) on tools that are used via system calls
 + there are a few minor details to be compliant with CRAN but overall the package is very close to fully compatible.
++ there are some tests failing. When I stopped working on this I was attempting to write some code for some basic validation of input data given the model specification (as in are the variables sufficiently crossed/replicated etc). Jumping back a few commits to a work version may be a more sensible starting point. Though the more extensive data validation would be nice to have. For MBA, inadequate data may not raise an error until a few weeks in to training the model...
 
+
+# Testing the package out
+
+With docker from the repository directory:
+
+```
+sudo docker run --rm -ti -v $PWD:/home/rstudio/work -e PASSWORD=hello -e ROOT=TRUE -e USERID=`id -u` -p 8787:8787 rocker/tidyverse
+```
+
+Going to a localhost:8787 to access an Rstudio instance and load the afnistats.proj file in the work directory. Follow the standard packaging operations as described in the packaging cheatsheet. 
+
+A sensible start would be running the following commands in the R console:
+
+```
+devtools::install_deps(upgrade="never")
+devtools::check()
+```
+
+# To test versions of R
+
+Circleci is setup to run an installation and some basic checks for every commit to github across differnt versions of R. It is not especially useful but you can run these locally using the [local circleci interface](https://circleci.com/docs/2.0/local-cli/#installation). So for example:
+
+```
+circleci local execute --job test_3.6.3
+
+```
