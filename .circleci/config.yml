@@ -1,0 +1,77 @@
+version: 2.1
+############################################################################
+#Define commands that can be reused in the jobs section
+############################################################################
+# none for now...
+
+############################################################################
+#Define jobs for building, testing, and deploying
+############################################################################
+jobs:
+
+  test:
+    parameters:
+      rver:
+        type: string
+    docker:
+      - image: rocker/tidyverse:<< parameters.rver >>
+    working_directory: /home/rstudio/src
+    steps:
+      - checkout
+      - run:
+          name: Install and run R package check
+          command: |
+            R -e 'devtools::install_deps(upgrade="never")'
+            R -e 'devtools::check()'
+
+          #    macos_build:
+          #    working_directory: /tmp/src/afni
+          #    macos:
+          #        xcode: "11.2.1"
+          #    steps: # a series of commands to run
+          #      - checkout
+          #      - setup_macos_for_afni
+          #      - run:
+          #          name: Build on macos
+          #          command: |
+          #            mkdir build
+          #            cd build
+          #            cmake ..                                                           \
+          #                -GNinja                                                             \
+          #                -DCMAKE_TOOLCHAIN_FILE=../cmake/macos_toolchainfile.cmake      \
+          #                -DUSE_SYSTEM_VOLPACK=OFF    \
+          #                -DUSE_SYSTEM_GLW=OFF    \
+          #                -DUSE_SYSTEM_XMHTML=OFF \
+          #                -DUSE_SYSTEM_F2C=OFF \
+          #                -DCOMP_ADD_RSTATS=OFF \
+          #                -DUSE_SYSTEM_GIFTI=OFF
+          #            ninja
+
+
+############################################################################
+#Define the  workflow to organize the execution of the jobs on circleci
+############################################################################
+workflows:
+  version: 2.1
+  afnistats:
+    jobs:
+      #      - macos_build:
+      #          requires:
+      #            - test_cmake_build
+      #          filters:
+      #            tags:
+      #              only: /.*/
+      #            branches:
+      #              only: /.*/
+      - test:
+          name: test_<< matrix.rver >>
+          matrix:
+            parameters:
+              rver: ["4.0.0", "3.5.0","3.6.3"]
+              # cache version should match for all jobs
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+
